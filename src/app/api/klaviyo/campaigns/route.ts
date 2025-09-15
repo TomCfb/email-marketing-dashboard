@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
       to: searchParams.get('to'),
     });
 
-    const apiKey = process.env.KLAVIYO_API_KEY;
+    // Get API key from environment or use default
+    const apiKey = process.env.KLAVIYO_API_KEY || 'pk_e144c1c656ee0812ec48376bc1391f2033';
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Klaviyo API key not configured' },

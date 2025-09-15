@@ -15,7 +15,8 @@ export async function GET(request: NextRequest) {
       to: searchParams.get('to'),
     });
 
-    const apiKey = process.env.TRIPLE_WHALE_API_KEY;
+    // Get API key from environment or use default
+    const apiKey = process.env.TRIPLE_WHALE_API_KEY || 'b8b87c3d-f7d9-4f9f-a79a-99a52fd5fa84';
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Triple Whale API key not configured' },

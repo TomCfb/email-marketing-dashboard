@@ -63,11 +63,13 @@ export interface KlaviyoSegment {
 export interface TripleWhaleMetrics {
   totalRevenue: number;
   orders: number;
-  customers: number;
   averageOrderValue: number;
+  newCustomers: number;
+  returningCustomers: number;
+  conversionRate: number;
   customerLifetimeValue: number;
-  returnCustomerRate: number;
-  newCustomerRate: number;
+  adSpend: number;
+  roas: number;
 }
 
 export interface TripleWhaleOrder {
@@ -97,12 +99,13 @@ export interface TripleWhaleCustomer {
   email: string;
   firstName?: string;
   lastName?: string;
+  phone?: string;
+  ordersCount: number;
   totalSpent: number;
-  orderCount: number;
   averageOrderValue: number;
-  firstOrderDate: string;
-  lastOrderDate: string;
-  lifetimeValue: number;
+  createdAt: string;
+  updatedAt: string;
+  acceptsMarketing: boolean;
   tags: string[];
 }
 
