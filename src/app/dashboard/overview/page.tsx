@@ -15,7 +15,7 @@ export default function OverviewPage() {
 
   // Fetch Klaviyo metrics
   const { 
-    data: klaviyoMetrics, 
+    data: klaviyoResponse, 
     isLoading: klaviyoLoading, 
     error: klaviyoError 
   } = useQuery({
@@ -29,7 +29,7 @@ export default function OverviewPage() {
 
   // Fetch Triple Whale metrics
   const { 
-    data: tripleWhaleMetrics, 
+    data: tripleWhaleResponse, 
     isLoading: tripleWhaleLoading, 
     error: tripleWhaleError 
   } = useQuery({
@@ -43,7 +43,7 @@ export default function OverviewPage() {
 
   // Fetch campaigns for the table
   const { 
-    data: campaigns, 
+    data: campaignsResponse, 
     isLoading: campaignsLoading 
   } = useQuery({
     queryKey: QueryKeys.klaviyoCampaigns(dateRange),
@@ -53,6 +53,11 @@ export default function OverviewPage() {
       return response.json();
     },
   });
+
+  // Extract data from API responses
+  const klaviyoMetrics = klaviyoResponse?.data;
+  const tripleWhaleMetrics = tripleWhaleResponse?.data;
+  const campaigns = campaignsResponse?.data;
 
   const isLoading = klaviyoLoading || tripleWhaleLoading;
   const hasError = klaviyoError || tripleWhaleError;
@@ -166,7 +171,7 @@ export default function OverviewPage() {
           <Skeleton className="h-[400px] w-full" />
         ) : (
           <DataTable
-            data={campaigns?.data || []}
+            data={campaigns || []}
             columns={[
               {
                 key: 'name',
