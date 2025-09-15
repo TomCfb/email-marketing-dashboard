@@ -24,11 +24,15 @@ export default function EmailPerformancePage() {
     queryKey: QueryKeys.klaviyoCampaigns(dateRange),
     queryFn: async () => {
       const response = await fetch(`/api/klaviyo/campaigns?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}`);
-      if (!response.ok) throw new Error('Failed to fetch campaigns');
-      return response.json();
+      if (!response.ok) throw new Error(`Failed to fetch campaigns: ${response.status} ${response.statusText}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(`API returned error: ${data.error || 'Unknown error'}`);
+      return data;
     },
     retry: 3,
     retryDelay: 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   // Fetch flows
@@ -40,11 +44,15 @@ export default function EmailPerformancePage() {
     queryKey: QueryKeys.klaviyoFlows(),
     queryFn: async () => {
       const response = await fetch('/api/klaviyo/flows');
-      if (!response.ok) throw new Error('Failed to fetch flows');
-      return response.json();
+      if (!response.ok) throw new Error(`Failed to fetch flows: ${response.status} ${response.statusText}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(`API returned error: ${data.error || 'Unknown error'}`);
+      return data;
     },
     retry: 3,
     retryDelay: 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   // Fetch email metrics
@@ -55,19 +63,44 @@ export default function EmailPerformancePage() {
     queryKey: QueryKeys.klaviyoMetrics(dateRange),
     queryFn: async () => {
       const response = await fetch(`/api/klaviyo/metrics?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}`);
-      if (!response.ok) throw new Error('Failed to fetch email metrics');
-      return response.json();
+      if (!response.ok) throw new Error(`Failed to fetch metrics: ${response.status} ${response.statusText}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(`API returned error: ${data.error || 'Unknown error'}`);
+      return data;
     },
     retry: 3,
     retryDelay: 1000,
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const isLoading = campaignsLoading || flowsLoading || metricsLoading;
   const hasError = campaignsError || flowsError || metricsError;
 
-  // Calculate aggregate metrics
+  // Calculate aggregate metrics with better error handling
   const campaignData = campaigns?.data || [];
   const flowData = flows?.data || [];
+  
+  // Show loading state if any query is still loading
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-[100px]" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-7 w-[120px] mb-2" />
+                <Skeleton className="h-3 w-[80px]" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
   
   const totalSent = campaignData.reduce((sum: number, campaign: KlaviyoCampaign) => sum + (campaign.recipients || 0), 0);
   const totalOpens = campaignData.reduce((sum: number, campaign: KlaviyoCampaign) => sum + (campaign.opens || 0), 0);
@@ -89,10 +122,19 @@ export default function EmailPerformancePage() {
   if (hasError) {
     return (
       <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Email Performance</h1>
+          <p className="text-muted-foreground">
+            Detailed analysis of email campaigns, flows, and engagement metrics
+          </p>
+        </div>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load email performance data. Please check your Klaviyo API connection.
+            Failed to load email performance data. 
+            Campaigns: {campaignsError?.message || 'OK'}, 
+            Flows: {flowsError?.message || 'OK'}, 
+            Metrics: {metricsError?.message || 'OK'}
           </AlertDescription>
         </Alert>
       </div>
