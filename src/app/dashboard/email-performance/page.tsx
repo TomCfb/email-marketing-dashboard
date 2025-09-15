@@ -8,8 +8,9 @@ import { useDateRange } from '@/lib/store/dashboard-store';
 import { QueryKeys } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, TrendingUp, Mail, MousePointer, DollarSign } from 'lucide-react';
+import { AlertCircle, MousePointer, Mail, DollarSign } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { KlaviyoCampaign } from '@/lib/types';
 
 export default function EmailPerformancePage() {
   const dateRange = useDateRange();
@@ -26,6 +27,8 @@ export default function EmailPerformancePage() {
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       return response.json();
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch flows
@@ -40,12 +43,14 @@ export default function EmailPerformancePage() {
       if (!response.ok) throw new Error('Failed to fetch flows');
       return response.json();
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch email metrics
   const { 
-    data: emailMetrics, 
-    isLoading: metricsLoading 
+    isLoading: metricsLoading,
+    error: metricsError 
   } = useQuery({
     queryKey: QueryKeys.klaviyoMetrics(dateRange),
     queryFn: async () => {
@@ -53,26 +58,28 @@ export default function EmailPerformancePage() {
       if (!response.ok) throw new Error('Failed to fetch email metrics');
       return response.json();
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   const isLoading = campaignsLoading || flowsLoading || metricsLoading;
-  const hasError = campaignsError || flowsError;
+  const hasError = campaignsError || flowsError || metricsError;
 
   // Calculate aggregate metrics
   const campaignData = campaigns?.data || [];
   const flowData = flows?.data || [];
   
-  const totalSent = campaignData.reduce((sum: number, campaign: any) => sum + (campaign.recipients || 0), 0);
-  const totalOpens = campaignData.reduce((sum: number, campaign: any) => sum + (campaign.opens || 0), 0);
-  const totalClicks = campaignData.reduce((sum: number, campaign: any) => sum + (campaign.clicks || 0), 0);
-  const totalRevenue = campaignData.reduce((sum: number, campaign: any) => sum + (campaign.revenue || 0), 0);
+  const totalSent = campaignData.reduce((sum: number, campaign: KlaviyoCampaign) => sum + (campaign.recipients || 0), 0);
+  const totalOpens = campaignData.reduce((sum: number, campaign: KlaviyoCampaign) => sum + (campaign.opens || 0), 0);
+  const totalClicks = campaignData.reduce((sum: number, campaign: KlaviyoCampaign) => sum + (campaign.clicks || 0), 0);
+  const totalRevenue = campaignData.reduce((sum: number, campaign: KlaviyoCampaign) => sum + (campaign.revenue || 0), 0);
 
   const avgOpenRate = totalSent > 0 ? (totalOpens / totalSent) * 100 : 0;
   const avgClickRate = totalSent > 0 ? (totalClicks / totalSent) * 100 : 0;
   const avgCTOR = totalOpens > 0 ? (totalClicks / totalOpens) * 100 : 0;
 
   // Prepare chart data
-  const performanceData = campaignData.slice(0, 10).map((campaign: any) => ({
+  const performanceData = campaignData.slice(0, 10).map((campaign: KlaviyoCampaign) => ({
     name: campaign.name?.substring(0, 20) + '...' || 'Untitled',
     openRate: campaign.openRate || 0,
     clickRate: campaign.clickRate || 0,
