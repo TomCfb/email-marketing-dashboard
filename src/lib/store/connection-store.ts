@@ -32,11 +32,30 @@ export const useConnectionStore = create<ConnectionStore>()(
         })),
       
       testConnections: async () => {
+        // Try to get config from localStorage, fallback to default API keys
+        let parsedConfig;
         const config = localStorage.getItem('dashboard-api-config');
-        if (!config) return;
+        
+        if (config) {
+          try {
+            parsedConfig = JSON.parse(config);
+          } catch (err) {
+            console.error('Error parsing config:', err);
+            parsedConfig = null;
+          }
+        }
+        
+        // Use default API keys if no config found
+        if (!parsedConfig) {
+          parsedConfig = {
+            klaviyoApiKey: 'pk_e144c1c656ee0812ec48376bc1391f2033',
+            klaviyoEndpoint: 'https://a.klaviyo.com/api',
+            tripleWhaleApiKey: 'b8b87c3d-f7d9-4f9f-a79a-99a52fd5fa84',
+            tripleWhaleEndpoint: 'https://api.triplewhale.com',
+          };
+        }
         
         try {
-          const parsedConfig = JSON.parse(config);
           
           // Test Klaviyo
           if (parsedConfig.klaviyoApiKey) {
@@ -54,7 +73,8 @@ export const useConnectionStore = create<ConnectionStore>()(
               
               const result = await response.json();
               get().setKlaviyoStatus(result.success ? 'connected' : 'disconnected');
-            } catch (error) {
+            } catch (err) {
+              console.error('Klaviyo connection failed:', err);
               get().setKlaviyoStatus('disconnected');
             }
           }
@@ -75,7 +95,8 @@ export const useConnectionStore = create<ConnectionStore>()(
               
               const result = await response.json();
               get().setTripleWhaleStatus(result.success ? 'connected' : 'disconnected');
-            } catch (error) {
+            } catch (err) {
+              console.error('Triple Whale connection failed:', err);
               get().setTripleWhaleStatus('disconnected');
             }
           }
