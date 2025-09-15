@@ -168,73 +168,149 @@ npm run db:seed
 npm run dev
 ```
 
-**Expected Output:**
-```
-▲ Next.js 14.0.0
-- Local:        http://localhost:3000
-- Network:      http://192.168.1.100:3000
+2. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-✓ Ready in 2.3s
+3. The dashboard will automatically fetch real data from your APIs
+
+## Project Structure
+
 ```
+src/
+├── app/                    # Next.js app directory
+│   ├── api/               # API routes for Klaviyo & Triple Whale
+│   │   ├── klaviyo/       # Klaviyo API endpoints
+│   │   └── triple-whale/  # Triple Whale API endpoints
+│   ├── dashboard/         # Dashboard pages
+│   │   ├── overview/      # Main dashboard overview
+│   │   ├── email-performance/ # Email campaign analytics
+│   │   └── revenue/       # Revenue attribution
+│   └── globals.css        # Global styles
+├── components/            # React components
+│   ├── charts/           # Chart components (Recharts)
+│   ├── dashboard/        # Dashboard-specific components
+│   └── shared/           # Shared/reusable components
+├── hooks/                # Custom React hooks
+├── lib/                  # Utility libraries
+│   ├── mcp/             # API client implementations
+│   │   ├── klaviyo.ts   # Klaviyo API client
+│   │   └── triple-whale.ts # Triple Whale API client
+│   ├── store/           # Zustand stores
+│   ├── types/           # TypeScript type definitions
+│   └── utils.ts         # Utility functions
+└── styles/              # Additional styles
+```
+
+## Real API Integration
+
+### Klaviyo Integration
+The dashboard now uses real Klaviyo API calls to fetch:
+- **Metrics**: Revenue, subscribers, open rates, click rates
+- **Campaigns**: Campaign performance, statistics, and engagement
+- **Flows**: Automated flow performance and revenue
+- **Segments**: Customer segmentation data
+
+### Triple Whale Integration
+The dashboard integrates with Triple Whale API for:
+- **E-commerce Metrics**: Total revenue, orders, AOV
+- **Customer Data**: New vs returning customers, LTV
+- **Orders**: Detailed order information and attribution
+- **Attribution**: Revenue attribution and ROAS calculations
+
+### Error Handling & Retry Logic
+- Automatic retry on API failures (3 attempts with 1s delay)
+- Comprehensive error messages for debugging
+- Fallback handling for missing or invalid data
+- Rate limiting compliance
+
+## Development
+
+### Available Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build optimized production bundle
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint with TypeScript support
+- `npm run type-check` - Run TypeScript type checking
+
+### Environment Variables
+
+See `env.example` for all available configuration options including:
+- API keys and endpoints
+- Cache configuration
+- Debug settings
+- Rate limiting options
+
+### Debugging
+
+The application includes comprehensive logging:
+- API request/response logging in development
+- Error tracking with stack traces
+- Performance monitoring for API calls
+- Browser console debugging in Windsurf preview
+
+## Deployment
 
 ### Production Build
-
 ```bash
 npm run build
 npm run start
 ```
 
-### Testing
+### Environment Setup
+Ensure all required environment variables are set in production:
+- `KLAVIYO_API_KEY` - Your Klaviyo private API key
+- `TRIPLE_WHALE_API_KEY` - Your Triple Whale API key
 
-```bash
-# Run all tests
-npm test
+## Troubleshooting
 
-# Run tests in watch mode
-npm run test:watch
+### Common Issues
 
-# Run type checking
-npm run type-check
-```
+1. **"Failed to load email performance data"**
+   - Check your API keys are valid and have correct permissions
+   - Verify network connectivity to Klaviyo/Triple Whale APIs
+   - Check browser console for detailed error messages
 
-## 📁 Project Structure
+2. **API Rate Limiting**
+   - The dashboard includes built-in rate limiting compliance
+   - If you hit limits, data will retry automatically
 
-```
-src/
-├── app/                          # Next.js App Router
-│   ├── api/                      # API routes
-│   │   ├── klaviyo/             # Klaviyo API endpoints
-│   │   ├── triple-whale/        # Triple Whale API endpoints
-│   │   ├── sync/                # Data synchronization
-│   │   └── analytics/           # Analytics endpoints
-│   ├── dashboard/               # Dashboard pages
-│   │   ├── overview/            # Main dashboard
-│   │   ├── email-performance/   # Email metrics
-│   │   ├── revenue/             # Revenue analytics
-│   │   └── customers/           # Customer insights
-│   ├── globals.css              # Global styles
-│   ├── layout.tsx               # Root layout
-│   └── page.tsx                 # Landing page
-├── components/                   # React components
-│   ├── ui/                      # Shadcn/ui components
-│   ├── dashboard/               # Dashboard-specific components
-│   ├── charts/                  # Chart components
-│   └── shared/                  # Reusable components
-├── lib/                         # Utility libraries
-│   ├── mcp/                     # MCP integration
-│   │   ├── klaviyo.ts          # Klaviyo client
-│   │   └── triple-whale.ts     # Triple Whale client
-│   ├── utils/                   # Utility functions
-│   └── types/                   # TypeScript definitions
-├── hooks/                       # Custom React hooks
-├── styles/                      # Additional styles
-└── tests/                       # Test files
-    ├── unit/                    # Unit tests
-    ├── integration/             # Integration tests
-    └── e2e/                     # End-to-end tests
-```
+3. **Missing Data**
+   - Ensure your Klaviyo account has campaigns and flows
+   - Verify Triple Whale is connected to your e-commerce platform
+   - Check date ranges in the dashboard filters
 
-## 🔌 API Documentation
+### Support
+
+For issues related to:
+- **Klaviyo API**: Check Klaviyo API documentation and support
+- **Triple Whale API**: Contact Triple Whale support
+- **Dashboard Issues**: Create an issue in this repository
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with proper TypeScript typing
+4. Add tests if applicable
+5. Commit changes (`git commit -m 'Add amazing feature'`)
+6. Push to branch (`git push origin feature/amazing-feature`)
+7. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.
+
+## Changelog
+
+### v2.0.0 - Real API Integration
+- ✅ Replaced all mock data with real Klaviyo API calls
+- ✅ Integrated real Triple Whale API data
+- ✅ Added comprehensive error handling and retry logic
+- ✅ Improved TypeScript typing for API responses
+- ✅ Enhanced debugging and logging capabilities
+- ✅ Updated documentation with setup instructions
+
+### API Documentation
 
 ### Core Endpoints
 

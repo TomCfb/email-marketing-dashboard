@@ -1,4 +1,4 @@
-import { TripleWhaleMetrics, TripleWhaleOrder, TripleWhaleCustomer, ApiResponse, DateRange } from '../types';
+import { TripleWhaleMetrics, TripleWhaleOrder, TripleWhaleCustomer, ApiResponse, DateRange, TripleWhaleApiOrder, TripleWhaleApiCustomer, TripleWhaleApiSummary } from '../types';
 
 export class TripleWhaleMCPClient {
   private apiKey: string;
@@ -36,23 +36,59 @@ export class TripleWhaleMCPClient {
     };
   }
 
-  async getMetrics(_dateRange: DateRange): Promise<ApiResponse<TripleWhaleMetrics>> {
+  async getMetrics(dateRange: DateRange): Promise<ApiResponse<TripleWhaleMetrics>> {
     try {
-      // Return mock data for Triple Whale metrics
-      const mockMetrics: TripleWhaleMetrics = {
-        totalRevenue: 78500,
-        orders: 342,
-        averageOrderValue: 229.53,
-        newCustomers: 89,
-        returningCustomers: 253,
-        conversionRate: 3.8,
-        customerLifetimeValue: 485.20,
-        adSpend: 12400,
-        roas: 6.33,
+      const startDate = dateRange.from.toISOString().split('T')[0];
+      const endDate = dateRange.to.toISOString().split('T')[0];
+
+      // Get summary metrics from Triple Whale API
+      const summaryResponse = await this.makeRequest<TripleWhaleApiSummary>(
+        `/summary?start_date=${startDate}&end_date=${endDate}`
+      );
+
+      // Get orders data for additional calculations
+      const ordersResponse = await this.makeRequest<{data: TripleWhaleApiOrder[]}>(
+        `/orders?start_date=${startDate}&end_date=${endDate}&limit=1000`
+      );
+
+      const summary = summaryResponse.data || {};
+      const orders = ordersResponse.data?.data || [];
+
+      // Calculate metrics from real data
+      const totalRevenue = summary.total_revenue || 0;
+      const orderCount = orders.length;
+      const averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
+
+      // Calculate new vs returning customers
+      const customerEmails = new Set();
+      const newCustomers = new Set();
+      const returningCustomers = new Set();
+
+      orders.forEach((order: TripleWhaleApiOrder) => {
+        if (order.email) {
+          if (customerEmails.has(order.email)) {
+            returningCustomers.add(order.email);
+          } else {
+            customerEmails.add(order.email);
+            newCustomers.add(order.email);
+          }
+        }
+      });
+
+      const metrics: TripleWhaleMetrics = {
+        totalRevenue,
+        orders: orderCount,
+        averageOrderValue,
+        newCustomers: newCustomers.size,
+        returningCustomers: returningCustomers.size,
+        conversionRate: summary.conversion_rate || 0,
+        customerLifetimeValue: summary.customer_lifetime_value || 0,
+        adSpend: summary.ad_spend || 0,
+        roas: summary.roas || ((summary.ad_spend || 0) > 0 ? totalRevenue / (summary.ad_spend || 1) : 0),
       };
 
       return {
-        data: mockMetrics,
+        data: metrics,
         success: true,
         timestamp: new Date().toISOString(),
       };
@@ -67,27 +103,28 @@ export class TripleWhaleMCPClient {
       const startDate = dateRange.from.toISOString().split('T')[0];
       const endDate = dateRange.to.toISOString().split('T')[0];
 
-      const response = await this.makeRequest<any>(
+      const response = await this.makeRequest<{data: TripleWhaleApiOrder[]}>(
         `/orders?start_date=${startDate}&end_date=${endDate}`
       );
 
-      const orders: TripleWhaleOrder[] = response.data?.data?.map((order: any) => ({
+      const orders: TripleWhaleOrder[] = response.data?.data?.map((order: TripleWhaleApiOrder) => ({
         id: order.id,
-        customerId: order.customer_id,
-        email: order.email,
-        totalPrice: order.total_price,
-        currency: order.currency,
-        createdAt: order.created_at,
-        updatedAt: order.updated_at,
-        orderNumber: order.order_number,
-        financialStatus: order.financial_status,
-        fulfillmentStatus: order.fulfillment_status,
-        tags: order.tags || [],
-        lineItems: order.line_items || [],
-        shippingAddress: order.shipping_address,
-        billingAddress: order.billing_address,
-        customerAcceptsMarketing: order.customer_accepts_marketing,
-        source: order.source_name,
+        customerId: order.customer_id || '',
+        email: order.email || '',
+        total: order.total_price || 0,
+        currency: order.currency || 'USD',
+        createdAt: order.created_at || new Date().toISOString(),
+        status: (order.financial_status as 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled') || 'pending',
+        items: (order.line_items || []).map((item: any) => ({
+          id: item.id || '',
+          productId: item.product_id || '',
+          name: item.name || '',
+          quantity: item.quantity || 0,
+          price: item.price || 0,
+          total: item.total || 0,
+        })),
+        source: order.source_name || 'unknown',
+        campaign: order.source_name || undefined,
       })) || [];
 
       return {
@@ -106,25 +143,25 @@ export class TripleWhaleMCPClient {
       const startDate = dateRange.from.toISOString().split('T')[0];
       const endDate = dateRange.to.toISOString().split('T')[0];
 
-      const response = await this.makeRequest<any>(
+      const response = await this.makeRequest<{data: TripleWhaleApiCustomer[]}>(
         `/customers?start_date=${startDate}&end_date=${endDate}`
       );
 
-      const customers: TripleWhaleCustomer[] = response.data?.data?.map((customerData: any) => {
+      const customers: TripleWhaleCustomer[] = response.data?.data?.map((customerData: TripleWhaleApiCustomer) => {
         const customer: TripleWhaleCustomer = {
           id: customerData.id,
-          email: customerData.email,
-          firstName: customerData.first_name,
-          lastName: customerData.last_name,
-          phone: customerData.phone,
-          ordersCount: customerData.orders_count,
-          totalSpent: customerData.total_spent,
-          averageOrderValue: customerData.orders_count > 0 
-            ? customerData.total_spent / customerData.orders_count 
+          email: customerData.email || '',
+          firstName: customerData.first_name || '',
+          lastName: customerData.last_name || '',
+          phone: customerData.phone || '',
+          ordersCount: customerData.orders_count || 0,
+          totalSpent: customerData.total_spent || 0,
+          averageOrderValue: (customerData.orders_count || 0) > 0 
+            ? (customerData.total_spent || 0) / (customerData.orders_count || 1) 
             : 0,
-          createdAt: customerData.created_at,
-          updatedAt: customerData.updated_at,
-          acceptsMarketing: customerData.accepts_marketing,
+          createdAt: customerData.created_at || new Date().toISOString(),
+          updatedAt: customerData.updated_at || new Date().toISOString(),
+          acceptsMarketing: customerData.accepts_marketing || false,
           tags: customerData.tags || [],
         };
 

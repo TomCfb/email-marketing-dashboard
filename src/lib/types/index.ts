@@ -7,6 +7,102 @@ export interface DashboardConfig {
   cacheStrategy: 'aggressive' | 'moderate' | 'minimal';
 }
 
+// API Response Types
+export interface KlaviyoApiProfile {
+  id: string;
+  attributes?: {
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
+export interface KlaviyoApiCampaign {
+  id: string;
+  attributes?: {
+    name?: string;
+    subject_line?: string;
+    status?: string;
+    send_time?: string;
+    statistics?: {
+      recipients?: number;
+      unique_opens?: number;
+      unique_clicks?: number;
+      revenue?: number;
+      unsubscribes?: number;
+    };
+  };
+}
+
+export interface KlaviyoApiFlow {
+  id: string;
+  attributes?: {
+    name?: string;
+    status?: string;
+    statistics?: {
+      revenue?: number;
+      conversion_rate?: number;
+      subscriber_count?: number;
+    };
+  };
+  relationships?: {
+    'flow-actions'?: {
+      data?: Array<{ id: string; type: string }>;
+    };
+  };
+}
+
+export interface KlaviyoApiSegment {
+  id: string;
+  attributes?: {
+    name?: string;
+    profile_count?: number;
+    estimated_count?: number;
+    is_processing?: boolean;
+  };
+}
+
+export interface TripleWhaleApiOrder {
+  id: string;
+  customer_id?: string;
+  email?: string;
+  total_price?: number;
+  currency?: string;
+  created_at?: string;
+  updated_at?: string;
+  order_number?: string;
+  financial_status?: string;
+  fulfillment_status?: string;
+  tags?: string[];
+  line_items?: any[];
+  shipping_address?: any;
+  billing_address?: any;
+  customer_accepts_marketing?: boolean;
+  source_name?: string;
+}
+
+export interface TripleWhaleApiCustomer {
+  id: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  orders_count?: number;
+  total_spent?: number;
+  created_at?: string;
+  updated_at?: string;
+  accepts_marketing?: boolean;
+  tags?: string[];
+}
+
+export interface TripleWhaleApiSummary {
+  total_revenue?: number;
+  conversion_rate?: number;
+  customer_lifetime_value?: number;
+  ad_spend?: number;
+  roas?: number;
+}
+
 // Date Range Types
 export interface DateRange {
   from: Date;

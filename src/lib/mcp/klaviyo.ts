@@ -1,4 +1,4 @@
-import { KlaviyoMetrics, KlaviyoCampaign, KlaviyoFlow, KlaviyoSegment, ApiResponse, DateRange } from '../types';
+import { KlaviyoMetrics, KlaviyoCampaign, KlaviyoFlow, KlaviyoSegment, ApiResponse, DateRange, KlaviyoApiProfile, KlaviyoApiCampaign, KlaviyoApiFlow, KlaviyoApiSegment } from '../types';
 
 export class KlaviyoMCPClient {
   private apiKey: string;
@@ -39,23 +39,55 @@ export class KlaviyoMCPClient {
 
   async getMetrics(dateRange: DateRange): Promise<ApiResponse<KlaviyoMetrics>> {
     try {
-      // For now, return mock data since Klaviyo API requires specific setup
-      // In production, implement proper Klaviyo API calls with correct endpoints
-      
-      const mockMetrics: KlaviyoMetrics = {
-        totalRevenue: 45000,
-        emailRevenue: 12500,
-        campaigns: 8,
-        flows: 5,
-        subscribers: 2340,
-        openRate: 24.5,
-        clickRate: 3.2,
-        conversionRate: 2.1,
-        unsubscribeRate: 0.8,
+      // Get profile count
+      const profilesResponse = await this.makeRequest<{data: KlaviyoApiProfile[]}>('/profiles');
+      const subscriberCount = profilesResponse.data?.data?.length || 0;
+
+      // Get campaigns for metrics calculation
+      const campaignsResponse = await this.makeRequest<{data: KlaviyoApiCampaign[]}>('/campaigns');
+      const campaigns = campaignsResponse.data?.data || [];
+
+      // Get flows for flow count
+      const flowsResponse = await this.makeRequest<{data: KlaviyoApiFlow[]}>('/flows');
+      const flowCount = flowsResponse.data?.data?.length || 0;
+
+      // Calculate metrics from real data
+      let totalRevenue = 0;
+      let emailRevenue = 0;
+      let totalOpens = 0;
+      let totalClicks = 0;
+      let totalSent = 0;
+      let totalUnsubscribes = 0;
+
+      for (const campaign of campaigns) {
+        const stats = campaign.attributes?.statistics || {};
+        totalRevenue += stats.revenue || 0;
+        emailRevenue += stats.revenue || 0;
+        totalOpens += stats.unique_opens || 0;
+        totalClicks += stats.unique_clicks || 0;
+        totalSent += stats.recipients || 0;
+        totalUnsubscribes += stats.unsubscribes || 0;
+      }
+
+      const openRate = totalSent > 0 ? (totalOpens / totalSent) * 100 : 0;
+      const clickRate = totalSent > 0 ? (totalClicks / totalSent) * 100 : 0;
+      const conversionRate = totalSent > 0 ? (totalRevenue / totalSent) * 100 : 0;
+      const unsubscribeRate = totalSent > 0 ? (totalUnsubscribes / totalSent) * 100 : 0;
+
+      const metrics: KlaviyoMetrics = {
+        totalRevenue,
+        emailRevenue,
+        campaigns: campaigns.length,
+        flows: flowCount,
+        subscribers: subscriberCount,
+        openRate,
+        clickRate,
+        conversionRate,
+        unsubscribeRate,
       };
 
       return {
-        data: mockMetrics,
+        data: metrics,
         success: true,
         timestamp: new Date().toISOString(),
       };
@@ -67,40 +99,30 @@ export class KlaviyoMCPClient {
 
   async getCampaigns(dateRange: DateRange): Promise<ApiResponse<KlaviyoCampaign[]>> {
     try {
-      // Return mock campaign data for now
-      const mockCampaigns: KlaviyoCampaign[] = [
-        {
-          id: 'camp_1',
-          name: 'Welcome Series - New Subscribers',
-          subject: 'Welcome to our community!',
-          status: 'sent',
-          sentAt: new Date().toISOString(),
-          recipients: 1250,
-          opens: 312,
-          clicks: 45,
-          revenue: 2340.50,
-          openRate: 24.96,
-          clickRate: 3.6,
-          conversionRate: 1.8,
-        },
-        {
-          id: 'camp_2',
-          name: 'Weekly Newsletter #45',
-          subject: 'This week in marketing trends',
-          status: 'sent',
-          sentAt: new Date(Date.now() - 86400000).toISOString(),
-          recipients: 3200,
-          opens: 896,
-          clicks: 124,
-          revenue: 1850.25,
-          openRate: 28.0,
-          clickRate: 3.9,
-          conversionRate: 2.2,
-        }
-      ];
+      const response = await this.makeRequest<{data: KlaviyoApiCampaign[]}>('/campaigns?include=campaign-messages');
+      
+      const campaigns: KlaviyoCampaign[] = response.data?.data?.map((campaign: KlaviyoApiCampaign) => {
+        const attributes = campaign.attributes || {};
+        const stats = attributes.statistics || {};
+        
+        return {
+          id: campaign.id,
+          name: attributes.name || 'Untitled Campaign',
+          subject: attributes.subject_line || 'No Subject',
+          status: (attributes.status as 'draft' | 'sent' | 'scheduled' | 'cancelled') || 'draft',
+          sentAt: attributes.send_time || new Date().toISOString(),
+          recipients: stats.recipients || 0,
+          opens: stats.unique_opens || 0,
+          clicks: stats.unique_clicks || 0,
+          revenue: stats.revenue || 0,
+          openRate: (stats.recipients || 0) > 0 ? ((stats.unique_opens || 0) / (stats.recipients || 1)) * 100 : 0,
+          clickRate: (stats.recipients || 0) > 0 ? ((stats.unique_clicks || 0) / (stats.recipients || 1)) * 100 : 0,
+          conversionRate: (stats.recipients || 0) > 0 ? ((stats.revenue || 0) / (stats.recipients || 1)) * 100 : 0,
+        };
+      }) || [];
 
       return {
-        data: mockCampaigns,
+        data: campaigns,
         success: true,
         timestamp: new Date().toISOString(),
       };
@@ -112,39 +134,20 @@ export class KlaviyoMCPClient {
 
   async getFlows(): Promise<ApiResponse<KlaviyoFlow[]>> {
     try {
-      // Return mock flow data for stable development
-      const mockFlows: KlaviyoFlow[] = [
-        {
-          id: 'flow_1',
-          name: 'Welcome Series',
-          status: 'active',
-          emails: 5,
-          revenue: 8500.75,
-          conversionRate: 12.5,
-          subscribers: 1850,
-        },
-        {
-          id: 'flow_2', 
-          name: 'Abandoned Cart Recovery',
-          status: 'active',
-          emails: 3,
-          revenue: 4200.25,
-          conversionRate: 8.2,
-          subscribers: 950,
-        },
-        {
-          id: 'flow_3',
-          name: 'Post-Purchase Follow-up',
-          status: 'active', 
-          emails: 4,
-          revenue: 2100.50,
-          conversionRate: 6.8,
-          subscribers: 720,
-        },
-      ];
+      const response = await this.makeRequest<{data: KlaviyoApiFlow[]}>('/flows?include=flow-actions');
+
+      const flows: KlaviyoFlow[] = response.data?.data?.map((flow: KlaviyoApiFlow) => ({
+        id: flow.id,
+        name: flow.attributes?.name || 'Untitled Flow',
+        status: (flow.attributes?.status as 'active' | 'paused' | 'draft') || 'draft',
+        emails: flow.relationships?.['flow-actions']?.data?.length || 0,
+        revenue: flow.attributes?.statistics?.revenue || 0,
+        conversionRate: flow.attributes?.statistics?.conversion_rate || 0,
+        subscribers: flow.attributes?.statistics?.subscriber_count || 0,
+      })) || [];
 
       return {
-        data: mockFlows,
+        data: flows,
         success: true,
         timestamp: new Date().toISOString(),
       };
@@ -156,33 +159,18 @@ export class KlaviyoMCPClient {
 
   async getSegments(): Promise<ApiResponse<KlaviyoSegment[]>> {
     try {
-      // Return mock segment data for stable development
-      const mockSegments: KlaviyoSegment[] = [
-        {
-          id: 'seg_1',
-          name: 'High-Value Customers',
-          count: 2450,
-          estimatedCount: 2500,
-          isProcessing: false,
-        },
-        {
-          id: 'seg_2',
-          name: 'Recent Subscribers',
-          count: 1850,
-          estimatedCount: 1900,
-          isProcessing: false,
-        },
-        {
-          id: 'seg_3',
-          name: 'Engaged Users',
-          count: 3200,
-          estimatedCount: 3250,
-          isProcessing: true,
-        },
-      ];
+      const response = await this.makeRequest<{data: KlaviyoApiSegment[]}>('/segments');
+
+      const segments: KlaviyoSegment[] = response.data?.data?.map((segment: KlaviyoApiSegment) => ({
+        id: segment.id,
+        name: segment.attributes?.name || 'Untitled Segment',
+        count: segment.attributes?.profile_count || 0,
+        estimatedCount: segment.attributes?.estimated_count || 0,
+        isProcessing: segment.attributes?.is_processing || false,
+      })) || [];
 
       return {
-        data: mockSegments,
+        data: segments,
         success: true,
         timestamp: new Date().toISOString(),
       };
