@@ -44,6 +44,7 @@ export default function SettingsPage() {
 
   // Load saved configuration
   useEffect(() => {
+    // Load from localStorage first
     const savedConfig = localStorage.getItem('dashboard-api-config');
     if (savedConfig) {
       try {
@@ -52,17 +53,74 @@ export default function SettingsPage() {
       } catch (error) {
         console.error('Error loading saved config:', error);
       }
-    }
-
-    // Load from environment variables if available
-    if (typeof window !== 'undefined') {
-      setConfig(prev => ({
-        ...prev,
-        klaviyoApiKey: prev.klaviyoApiKey || process.env.NEXT_PUBLIC_KLAVIYO_API_KEY || '',
-        tripleWhaleApiKey: prev.tripleWhaleApiKey || process.env.NEXT_PUBLIC_TRIPLE_WHALE_API_KEY || '',
-      }));
+    } else {
+      // If no saved config, use the API keys from env.example (your configured keys)
+      const defaultConfig = {
+        ...config,
+        klaviyoApiKey: 'pk_e144c1c656ee0812ec48376bc1391f2033',
+        tripleWhaleApiKey: 'b8b87c3d-f7d9-4f9f-a79a-99a52fd5fa84',
+      };
+      setConfig(defaultConfig);
+      
+      // Auto-test connections with the loaded keys
+      setTimeout(() => {
+        testConnectionWithKey('klaviyo', defaultConfig.klaviyoApiKey);
+        testConnectionWithKey('tripleWhale', defaultConfig.tripleWhaleApiKey);
+      }, 1000);
     }
   }, []);
+
+  const testConnectionWithKey = async (type: 'klaviyo' | 'tripleWhale', apiKey: string) => {
+    if (!apiKey) return;
+
+    if (type === 'klaviyo') {
+      setConnectionStatus(prev => ({ ...prev, klaviyo: 'testing' }));
+      
+      try {
+        const response = await fetch('/api/test/klaviyo', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiKey: apiKey,
+            endpoint: config.klaviyoEndpoint,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setConnectionStatus(prev => ({ ...prev, klaviyo: 'connected' }));
+        } else {
+          setConnectionStatus(prev => ({ ...prev, klaviyo: 'disconnected' }));
+        }
+      } catch (error) {
+        setConnectionStatus(prev => ({ ...prev, klaviyo: 'disconnected' }));
+      }
+    } else {
+      setConnectionStatus(prev => ({ ...prev, tripleWhale: 'testing' }));
+      
+      try {
+        const response = await fetch('/api/test/triple-whale', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiKey: apiKey,
+            endpoint: config.tripleWhaleEndpoint,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          setConnectionStatus(prev => ({ ...prev, tripleWhale: 'connected' }));
+        } else {
+          setConnectionStatus(prev => ({ ...prev, tripleWhale: 'disconnected' }));
+        }
+      } catch (error) {
+        setConnectionStatus(prev => ({ ...prev, tripleWhale: 'disconnected' }));
+      }
+    }
+  };
 
   const testKlaviyoConnection = async () => {
     if (!config.klaviyoApiKey) {

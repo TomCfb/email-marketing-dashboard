@@ -1,95 +1,76 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { useSyncStatus } from '@/lib/store/dashboard-store';
-import { CheckCircle, AlertCircle, XCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { RefreshCw, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { useConnectionStore } from '@/lib/store/connection-store';
 
 export function RefreshIndicator() {
-  const syncStatus = useSyncStatus();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const { connectionStatus, testConnections } = useConnectionStore();
 
-  const getStatusIcon = (health: string, isRunning: boolean) => {
-    if (isRunning) {
-      return <Loader2 className="h-3 w-3 animate-spin" />;
-    }
-    
-    switch (health) {
-      case 'healthy':
-        return <CheckCircle className="h-3 w-3" />;
-      case 'degraded':
-        return <AlertCircle className="h-3 w-3" />;
-      case 'down':
-        return <XCircle className="h-3 w-3" />;
+  // Test connections on component mount
+  useEffect(() => {
+    testConnections();
+  }, [testConnections]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await testConnections();
+    setIsRefreshing(false);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'connected':
+        return <CheckCircle className="h-3 w-3 text-green-500" />;
+      case 'testing':
+        return <Loader2 className="h-3 w-3 animate-spin text-blue-500" />;
       default:
-        return <XCircle className="h-3 w-3" />;
+        return <XCircle className="h-3 w-3 text-red-500" />;
     }
   };
 
-  const getStatusVariant = (health: string, isRunning: boolean) => {
-    if (isRunning) return 'secondary';
-    
-    switch (health) {
-      case 'healthy':
-        return 'default';
-      case 'degraded':
-        return 'secondary';
-      case 'down':
-        return 'destructive';
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'connected':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'testing':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       default:
-        return 'destructive';
+        return 'bg-red-100 text-red-800 border-red-200';
     }
   };
-
-  const getStatusText = (health: string, isRunning: boolean) => {
-    if (isRunning) return 'Syncing...';
-    
-    switch (health) {
-      case 'healthy':
-        return 'Connected';
-      case 'degraded':
-        return 'Degraded';
-      case 'down':
-        return 'Disconnected';
-      default:
-        return 'Unknown';
-    }
-  };
-
-  const klaviyoHealth = syncStatus.klaviyo.health;
-  const tripleWhaleHealth = syncStatus.tripleWhale.health;
-  const isRunning = syncStatus.isRunning;
-
-  // Overall health is the worst of the two
-  const overallHealth = klaviyoHealth === 'down' || tripleWhaleHealth === 'down' 
-    ? 'down' 
-    : klaviyoHealth === 'degraded' || tripleWhaleHealth === 'degraded'
-    ? 'degraded'
-    : 'healthy';
 
   return (
     <div className="flex items-center space-x-2">
-      <Badge 
-        variant={getStatusVariant(overallHealth, isRunning)}
-        className="flex items-center space-x-1"
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleRefresh}
+        disabled={isRefreshing}
+        className="h-8 px-2"
       >
-        {getStatusIcon(overallHealth, isRunning)}
-        <span className="text-xs">{getStatusText(overallHealth, isRunning)}</span>
-      </Badge>
+        <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+      </Button>
       
-      {/* Individual platform status on hover */}
-      <div className="hidden md:flex items-center space-x-1">
+      <div className="flex items-center space-x-1">
         <Badge 
           variant="outline" 
-          className="text-xs"
-          title={`Klaviyo: ${getStatusText(klaviyoHealth, false)}`}
+          className={cn("flex items-center space-x-1", getStatusColor(connectionStatus.klaviyo))}
         >
-          K
+          {getStatusIcon(connectionStatus.klaviyo)}
+          <span className="text-xs">Klaviyo</span>
         </Badge>
+        
         <Badge 
           variant="outline" 
-          className="text-xs"
-          title={`Triple Whale: ${getStatusText(tripleWhaleHealth, false)}`}
+          className={cn("flex items-center space-x-1", getStatusColor(connectionStatus.tripleWhale))}
         >
-          TW
+          {getStatusIcon(connectionStatus.tripleWhale)}
+          <span className="text-xs">Triple Whale</span>
         </Badge>
       </div>
     </div>
