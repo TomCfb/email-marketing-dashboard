@@ -7,12 +7,12 @@ export class KlaviyoMCPClient {
 
   constructor(apiKey: string, endpoint?: string) {
     this.apiKey = apiKey;
-    this.endpoint = endpoint || process.env.KLAVIYO_MCP_ENDPOINT || 'http://localhost:3001/klaviyo';
+    this.endpoint = endpoint || 'https://a.klaviyo.com/api';
     this.baseUrl = 'https://a.klaviyo.com/api';
   }
 
   private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const url = this.endpoint ? `${this.endpoint}${path}` : `${this.baseUrl}${path}`;
+    const url = `${this.baseUrl}${path}`;
     
     const response = await fetch(url, {
       ...options,

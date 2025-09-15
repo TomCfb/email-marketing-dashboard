@@ -13,32 +13,8 @@ import {
   Users, 
   Menu,
   Settings,
-  RefreshCw,
-  Home
+  RefreshCw
 } from 'lucide-react';
-
-const navigation = [
-  {
-    name: 'Overview',
-    href: '/dashboard/overview',
-    icon: Home,
-  },
-  {
-    name: 'Email Performance',
-    href: '/dashboard/email-performance',
-    icon: Mail,
-  },
-  {
-    name: 'Revenue Analytics',
-    href: '/dashboard/revenue',
-    icon: DollarSign,
-  },
-  {
-    name: 'Customer Insights',
-    href: '/dashboard/customers',
-    icon: Users,
-  },
-];
 
 interface SidebarProps {
   className?: string;
@@ -46,6 +22,14 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
+
+  const navigation = [
+    { name: 'Overview', href: '/dashboard/overview', icon: BarChart3, current: pathname === '/dashboard/overview' },
+    { name: 'Email Performance', href: '/dashboard/email-performance', icon: Mail, current: pathname === '/dashboard/email-performance' },
+    { name: 'Revenue Analytics', href: '/dashboard/revenue', icon: DollarSign, current: pathname === '/dashboard/revenue' },
+    { name: 'Customer Insights', href: '/dashboard/customers', icon: Users, current: pathname === '/dashboard/customers' },
+    { name: 'Settings', href: '/dashboard/settings', icon: Settings, current: pathname === '/dashboard/settings' },
+  ];
 
   return (
     <div className={cn("pb-12 min-h-screen", className)}>
