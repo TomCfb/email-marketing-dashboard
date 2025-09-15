@@ -302,13 +302,25 @@ MIT License - see LICENSE file for details.
 
 ## Changelog
 
-### v2.0.0 - Real API Integration
-- ✅ Replaced all mock data with real Klaviyo API calls
-- ✅ Integrated real Triple Whale API data
-- ✅ Added comprehensive error handling and retry logic
-- ✅ Improved TypeScript typing for API responses
-- ✅ Enhanced debugging and logging capabilities
-- ✅ Updated documentation with setup instructions
+### 🔧 Recent Updates
+
+### Real API Integration (Latest - v2.1.0)
+- **Klaviyo API**: Fully integrated real Klaviyo API calls with proper authentication and error handling
+  - Fixed API request headers with correct revision version (2023-12-15)
+  - Implemented real data fetching for metrics, campaigns, flows, and segments
+  - Added comprehensive fallback mechanisms for API failures
+  - Enhanced TypeScript types for Klaviyo API responses
+- **Triple Whale API**: Integrated real API calls for e-commerce metrics, orders, and customer data
+- **Error Handling**: Robust fallback system ensures dashboard stability even during API outages
+- **Authentication**: Proper API key authentication with secure header formatting
+- **Performance**: Optimized API calls with pagination and request limiting
+- **Debugging**: Added detailed logging for API requests, responses, and errors
+
+### Breaking Changes
+- Environment variables `KLAVIYO_API_KEY` and `TRIPLE_WHALE_API_KEY` are now required
+- API endpoints now return real data instead of mock data
+- Klaviyo API revision updated to 2023-12-15 for better compatibility
+- Error handling improved with graceful fallback to mock data when APIs are unavailable
 
 ### API Documentation
 

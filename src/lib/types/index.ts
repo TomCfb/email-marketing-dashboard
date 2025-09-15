@@ -8,37 +8,159 @@ export interface DashboardConfig {
 }
 
 // API Response Types
-export interface KlaviyoApiProfile {
-  id: string;
-  attributes?: {
-    email?: string;
-    first_name?: string;
-    last_name?: string;
+export interface KlaviyoApiResponse<T> {
+  data: T;
+  links?: {
+    self?: string;
+    first?: string;
+    last?: string;
+    prev?: string;
+    next?: string;
   };
 }
 
-export interface KlaviyoApiCampaign {
+export interface KlaviyoProfile {
+  type: 'profile';
   id: string;
-  attributes?: {
+  attributes: {
+    email?: string;
+    phone_number?: string;
+    external_id?: string;
+    first_name?: string;
+    last_name?: string;
+    organization?: string;
+    locale?: string;
+    title?: string;
+    image?: string;
+    created?: string;
+    updated?: string;
+    last_event_date?: string;
+    location?: {
+      address1?: string;
+      address2?: string;
+      city?: string;
+      country?: string;
+      latitude?: string;
+      longitude?: string;
+      region?: string;
+      zip?: string;
+      timezone?: string;
+      ip?: string;
+    };
+    properties?: Record<string, unknown>;
+    predictive_analytics?: {
+      historic_clv?: number;
+      predicted_clv?: number;
+      total_clv?: number;
+      historic_number_of_orders?: number;
+      predicted_number_of_orders?: number;
+      average_days_between_orders?: number;
+      average_order_value?: number;
+      churn_probability?: number;
+      expected_date_of_next_order?: string;
+    };
+  };
+  relationships?: {
+    lists?: {
+      data?: Array<{
+        type: 'list';
+        id: string;
+      }>;
+    };
+    segments?: {
+      data?: Array<{
+        type: 'segment';
+        id: string;
+      }>;
+    };
+  };
+}
+
+export interface KlaviyoCampaignApiResponse {
+  type: 'campaign';
+  id: string;
+  attributes: {
     name?: string;
     subject_line?: string;
-    status?: string;
-    send_time?: string;
+    status?: 'draft' | 'queued' | 'sending' | 'sent' | 'paused' | 'cancelled';
+    archived?: boolean;
+    audiences?: {
+      included?: Array<{
+        type: string;
+        id: string;
+      }>;
+      excluded?: Array<{
+        type: string;
+        id: string;
+      }>;
+    };
+    send_options?: {
+      use_smart_sending?: boolean;
+      is_transactional?: boolean;
+    };
+    tracking_options?: {
+      is_tracking_clicks?: boolean;
+      is_tracking_opens?: boolean;
+      is_add_utm?: boolean;
+      utm_params?: Array<{
+        name: string;
+        value: string;
+      }>;
+    };
+    send_strategy?: {
+      method: 'immediate' | 'throttled' | 'smart_send_time';
+      options_static?: {
+        datetime: string;
+        is_local: boolean;
+        send_past_recipients_immediately: boolean;
+      };
+      options_throttled?: {
+        datetime: string;
+        throttle_percentage: number;
+      };
+      options_sto?: {
+        date: string;
+      };
+    };
     statistics?: {
       recipients?: number;
       unique_opens?: number;
       unique_clicks?: number;
       revenue?: number;
-      unsubscribes?: number;
+      open_rate?: number;
+      click_rate?: number;
+    };
+    created_at?: string;
+    scheduled_at?: string;
+    updated_at?: string;
+    send_time?: string;
+  };
+  relationships?: {
+    campaign_messages?: {
+      data?: Array<{
+        type: 'campaign-message';
+        id: string;
+      }>;
+    };
+    tags?: {
+      data?: Array<{
+        type: 'tag';
+        id: string;
+      }>;
     };
   };
 }
 
-export interface KlaviyoApiFlow {
+export interface KlaviyoFlowApiResponse {
+  type: 'flow';
   id: string;
-  attributes?: {
+  attributes: {
     name?: string;
-    status?: string;
+    status?: 'active' | 'paused' | 'draft';
+    archived?: boolean;
+    created?: string;
+    updated?: string;
+    trigger_type?: string;
     statistics?: {
       revenue?: number;
       conversion_rate?: number;
@@ -47,18 +169,47 @@ export interface KlaviyoApiFlow {
   };
   relationships?: {
     'flow-actions'?: {
-      data?: Array<{ id: string; type: string }>;
+      data?: Array<{
+        type: 'flow-action';
+        id: string;
+      }>;
+    };
+    tags?: {
+      data?: Array<{
+        type: 'tag';
+        id: string;
+      }>;
     };
   };
 }
 
-export interface KlaviyoApiSegment {
+export interface KlaviyoSegmentApiResponse {
+  type: 'segment';
   id: string;
-  attributes?: {
+  attributes: {
     name?: string;
+    definition?: Record<string, unknown>;
+    created?: string;
+    updated?: string;
+    is_active?: boolean;
+    is_processing?: boolean;
+    is_starred?: boolean;
     profile_count?: number;
     estimated_count?: number;
-    is_processing?: boolean;
+  };
+  relationships?: {
+    tags?: {
+      data?: Array<{
+        type: 'tag';
+        id: string;
+      }>;
+    };
+    profiles?: {
+      data?: Array<{
+        type: 'profile';
+        id: string;
+      }>;
+    };
   };
 }
 
@@ -113,13 +264,13 @@ export interface DateRange {
 export interface KlaviyoMetrics {
   totalRevenue: number;
   emailRevenue: number;
-  campaigns: number;
-  flows: number;
   subscribers: number;
   openRate: number;
   clickRate: number;
   conversionRate: number;
-  unsubscribeRate: number;
+  activeFlows: number;
+  totalCampaigns: number;
+  avgOrderValue: number;
 }
 
 export interface KlaviyoCampaign {
