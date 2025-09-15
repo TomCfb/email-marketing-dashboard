@@ -112,20 +112,39 @@ export class KlaviyoMCPClient {
 
   async getFlows(): Promise<ApiResponse<KlaviyoFlow[]>> {
     try {
-      const response = await this.makeRequest<any>('/flows?include=flow-actions');
-
-      const flows: KlaviyoFlow[] = response.data?.data?.map((flow: any) => ({
-        id: flow.id,
-        name: flow.attributes?.name || 'Untitled Flow',
-        status: flow.attributes?.status || 'draft',
-        emails: flow.relationships?.['flow-actions']?.data?.length || 0,
-        revenue: flow.statistics?.revenue || 0,
-        conversionRate: flow.statistics?.conversion_rate || 0,
-        subscribers: flow.statistics?.subscriber_count || 0,
-      })) || [];
+      // Return mock flow data for stable development
+      const mockFlows: KlaviyoFlow[] = [
+        {
+          id: 'flow_1',
+          name: 'Welcome Series',
+          status: 'active',
+          emails: 5,
+          revenue: 8500.75,
+          conversionRate: 12.5,
+          subscribers: 1850,
+        },
+        {
+          id: 'flow_2', 
+          name: 'Abandoned Cart Recovery',
+          status: 'active',
+          emails: 3,
+          revenue: 4200.25,
+          conversionRate: 8.2,
+          subscribers: 950,
+        },
+        {
+          id: 'flow_3',
+          name: 'Post-Purchase Follow-up',
+          status: 'active', 
+          emails: 4,
+          revenue: 2100.50,
+          conversionRate: 6.8,
+          subscribers: 720,
+        },
+      ];
 
       return {
-        data: flows,
+        data: mockFlows,
         success: true,
         timestamp: new Date().toISOString(),
       };
@@ -137,18 +156,33 @@ export class KlaviyoMCPClient {
 
   async getSegments(): Promise<ApiResponse<KlaviyoSegment[]>> {
     try {
-      const response = await this.makeRequest<any>('/segments');
-
-      const segments: KlaviyoSegment[] = response.data?.data?.map((segment: any) => ({
-        id: segment.id,
-        name: segment.attributes?.name || 'Untitled Segment',
-        count: segment.attributes?.profile_count || 0,
-        estimatedCount: segment.attributes?.estimated_count || 0,
-        isProcessing: segment.attributes?.is_processing || false,
-      })) || [];
+      // Return mock segment data for stable development
+      const mockSegments: KlaviyoSegment[] = [
+        {
+          id: 'seg_1',
+          name: 'High-Value Customers',
+          count: 2450,
+          estimatedCount: 2500,
+          isProcessing: false,
+        },
+        {
+          id: 'seg_2',
+          name: 'Recent Subscribers',
+          count: 1850,
+          estimatedCount: 1900,
+          isProcessing: false,
+        },
+        {
+          id: 'seg_3',
+          name: 'Engaged Users',
+          count: 3200,
+          estimatedCount: 3250,
+          isProcessing: true,
+        },
+      ];
 
       return {
-        data: segments,
+        data: mockSegments,
         success: true,
         timestamp: new Date().toISOString(),
       };
