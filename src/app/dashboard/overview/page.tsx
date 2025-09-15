@@ -25,6 +25,8 @@ export default function OverviewPage() {
       if (!response.ok) throw new Error('Failed to fetch Klaviyo metrics');
       return response.json();
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch Triple Whale metrics
@@ -39,6 +41,8 @@ export default function OverviewPage() {
       if (!response.ok) throw new Error('Failed to fetch Triple Whale metrics');
       return response.json();
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch campaigns for the table
@@ -52,6 +56,8 @@ export default function OverviewPage() {
       if (!response.ok) throw new Error('Failed to fetch campaigns');
       return response.json();
     },
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Extract data from API responses
