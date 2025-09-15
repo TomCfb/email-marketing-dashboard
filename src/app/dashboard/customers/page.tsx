@@ -248,7 +248,7 @@ export default function CustomerInsightsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{vipCustomers.length}</div>
             <p className="text-xs text-muted-foreground">
-              LTV > $1,000
+              LTV &gt; $1,000
             </p>
           </CardContent>
         </Card>
@@ -261,7 +261,7 @@ export default function CustomerInsightsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{highEngagementCustomers.length}</div>
             <p className="text-xs text-muted-foreground">
-              Engagement > 80%
+              Engagement &gt; 80%
             </p>
           </CardContent>
         </Card>
@@ -274,7 +274,7 @@ export default function CustomerInsightsPage() {
           <CardContent>
             <div className="text-2xl font-bold">{atRiskCustomers.length}</div>
             <p className="text-xs text-muted-foreground">
-              Risk Score > 70%
+              Risk Score &gt; 70%
             </p>
           </CardContent>
         </Card>
