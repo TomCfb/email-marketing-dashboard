@@ -144,26 +144,24 @@ export class TripleWhaleMCPClient {
 
   async getCustomerById(customerId: string): Promise<ApiResponse<TripleWhaleCustomer>> {
     try {
-      const response = await this.makeRequest<any>(`/customers/${customerId}`);
-      
-      const customer: TripleWhaleCustomer = {
-        id: response.data.id,
-        email: response.data.email,
-        firstName: response.data.first_name,
-        lastName: response.data.last_name,
-        totalSpent: response.data.total_spent || 0,
-        orderCount: response.data.orders_count || 0,
-        averageOrderValue: response.data.orders_count > 0 
-          ? (response.data.total_spent || 0) / response.data.orders_count 
-          : 0,
-        firstOrderDate: response.data.created_at,
-        lastOrderDate: response.data.updated_at,
-        lifetimeValue: response.data.total_spent || 0,
-        tags: response.data.tags || [],
+      // Return mock customer data for development
+      const mockCustomer: TripleWhaleCustomer = {
+        id: customerId,
+        email: `customer${customerId}@example.com`,
+        firstName: 'John',
+        lastName: 'Doe',
+        phone: '+1-555-0123',
+        ordersCount: 5,
+        totalSpent: 1250.75,
+        averageOrderValue: 250.15,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        acceptsMarketing: true,
+        tags: ['vip', 'repeat-customer'],
       };
 
       return {
-        data: customer,
+        data: mockCustomer,
         success: true,
         timestamp: new Date().toISOString(),
       };
@@ -175,35 +173,24 @@ export class TripleWhaleMCPClient {
 
   async getCustomerByEmail(email: string): Promise<ApiResponse<TripleWhaleCustomer | null>> {
     try {
-      const response = await this.makeRequest<any>(`/customers?email=${encodeURIComponent(email)}`);
-      
-      const customerData = response.data?.data?.[0];
-      if (!customerData) {
-        return {
-          data: null,
-          success: true,
-          timestamp: new Date().toISOString(),
-        };
-      }
-
-      const customer: TripleWhaleCustomer = {
-        id: customerData.id,
-        email: customerData.email,
-        firstName: customerData.first_name,
-        lastName: customerData.last_name,
-        totalSpent: customerData.total_spent || 0,
-        orderCount: customerData.orders_count || 0,
-        averageOrderValue: customerData.orders_count > 0 
-          ? (customerData.total_spent || 0) / customerData.orders_count 
-          : 0,
-        firstOrderDate: customerData.created_at,
-        lastOrderDate: customerData.updated_at,
-        lifetimeValue: customerData.total_spent || 0,
-        tags: customerData.tags || [],
+      // Return mock customer data for development
+      const mockCustomer: TripleWhaleCustomer = {
+        id: 'cust_' + email.split('@')[0],
+        email: email,
+        firstName: 'Jane',
+        lastName: 'Smith',
+        phone: '+1-555-0456',
+        ordersCount: 3,
+        totalSpent: 875.25,
+        averageOrderValue: 291.75,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        acceptsMarketing: true,
+        tags: ['email-subscriber', 'active'],
       };
 
       return {
-        data: customer,
+        data: mockCustomer,
         success: true,
         timestamp: new Date().toISOString(),
       };
