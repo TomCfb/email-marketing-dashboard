@@ -7,7 +7,7 @@ import { useDateRange } from '@/lib/store/dashboard-store';
 import { QueryKeys } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, DollarSign, TrendingUp, Users, ShoppingCart } from 'lucide-react';
+import { AlertCircle, DollarSign, Users, ShoppingCart } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
@@ -19,8 +19,6 @@ import {
   PieChart, 
   Pie, 
   Cell,
-  LineChart,
-  Line,
   Area,
   AreaChart
 } from 'recharts';
@@ -92,7 +90,7 @@ export default function RevenueAnalyticsPage() {
     { month: 'Apr', emailRevenue: emailRevenue, totalRevenue: totalRevenue },
   ];
 
-  const campaignAttributionData = attribution?.data?.campaigns?.slice(0, 8).map((campaign: any) => ({
+  const campaignAttributionData = attribution?.data?.campaigns?.slice(0, 8).map((campaign: { campaignName?: string; revenue?: number; orders?: number }) => ({
     name: campaign.campaignName?.substring(0, 15) + '...' || 'Campaign',
     revenue: campaign.revenue || 0,
     orders: campaign.orders || 0,
@@ -170,7 +168,8 @@ export default function RevenueAnalyticsPage() {
                     cx="50%"
                     cy="50%"
                     labelLine={false}
-                    label={({ name, percentage }) => `${name}: ${percentage.toFixed(1)}%`}
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    label={(entry: any) => `${entry.name}: ${((entry.value / attributionData.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)}%`}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"

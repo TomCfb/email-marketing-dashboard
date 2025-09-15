@@ -1,6 +1,24 @@
 import { KlaviyoMCPClient } from './klaviyo';
 import { TripleWhaleMCPClient } from './triple-whale';
-import { UnifiedCustomer, DateRange, RevenueAttribution, CampaignAttribution } from '../types';
+import { 
+  UnifiedCustomer, 
+  DateRange, 
+  RevenueAttribution, 
+  CampaignAttribution,
+  KlaviyoCampaign,
+  TripleWhaleCustomer,
+  TripleWhaleOrder,
+  KlaviyoMetrics,
+  TripleWhaleMetrics
+} from '../types';
+
+interface KlaviyoProfile {
+  id: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  attributes?: Record<string, unknown>;
+}
 
 export class DataSyncEngine {
   private klaviyoClient: KlaviyoMCPClient;
@@ -13,7 +31,6 @@ export class DataSyncEngine {
 
   /**
    * Match customers between Klaviyo and Triple Whale platforms
-   * Uses email as primary matching key with fuzzy matching for incomplete data
    */
   async matchCustomers(dateRange?: DateRange): Promise<UnifiedCustomer[]> {
     try {
@@ -21,23 +38,26 @@ export class DataSyncEngine {
 
       // Fetch customers from both platforms
       const [klaviyoProfiles, tripleWhaleCustomers] = await Promise.all([
-        this.getKlaviyoProfiles(dateRange),
-        this.tripleWhaleClient.getCustomers(dateRange)
+        this.getKlaviyoProfiles(),
+        this.tripleWhaleClient.getCustomers(dateRange || { 
+          from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), 
+          to: new Date() 
+        })
       ]);
 
       const unifiedCustomers: UnifiedCustomer[] = [];
       const processedEmails = new Set<string>();
 
       // Create a map of Triple Whale customers by email for efficient lookup
-      const tripleWhaleMap = new Map<string, any>();
-      tripleWhaleCustomers.data.forEach(customer => {
+      const tripleWhaleMap = new Map<string, TripleWhaleCustomer>();
+      tripleWhaleCustomers.data.forEach((customer: TripleWhaleCustomer) => {
         if (customer.email) {
           tripleWhaleMap.set(customer.email.toLowerCase(), customer);
         }
       });
 
       // Process Klaviyo profiles first
-      for (const profile of klaviyoProfiles) {
+      for (const profile of klaviyoProfiles.data) {
         if (!profile.email || processedEmails.has(profile.email.toLowerCase())) {
           continue;
         }
@@ -51,29 +71,29 @@ export class DataSyncEngine {
           email: profile.email,
           klaviyoId: profile.id,
           tripleWhaleId: tripleWhaleCustomer?.id,
-          firstName: profile.first_name || tripleWhaleCustomer?.firstName,
-          lastName: profile.last_name || tripleWhaleCustomer?.lastName,
-          klaviyoSegments: profile.segments || [],
+          firstName: profile.firstName || tripleWhaleCustomer?.firstName,
+          lastName: profile.lastName || tripleWhaleCustomer?.lastName,
+          klaviyoSegments: (profile.attributes?.segments as string[]) || [],
           emailEngagement: {
-            openRate: profile.engagement?.open_rate || 0,
-            clickRate: profile.engagement?.click_rate || 0,
-            lastEngaged: profile.last_event_date || new Date().toISOString(),
+            openRate: (profile.attributes?.engagement as Record<string, number>)?.open_rate || 0,
+            clickRate: (profile.attributes?.engagement as Record<string, number>)?.click_rate || 0,
+            lastEngaged: (profile.attributes?.last_event_date as string) || new Date().toISOString(),
           },
           totalSpent: tripleWhaleCustomer?.totalSpent || 0,
-          orderCount: tripleWhaleCustomer?.orderCount || 0,
+          orderCount: tripleWhaleCustomer?.ordersCount || 0,
           averageOrderValue: tripleWhaleCustomer?.averageOrderValue || 0,
-          lifetimeValue: tripleWhaleCustomer?.lifetimeValue || 0,
+          lifetimeValue: tripleWhaleCustomer?.totalSpent || 0,
         };
 
         // Calculate engagement and risk scores
         unifiedCustomer.engagementScore = this.calculateEngagementScore(unifiedCustomer);
         unifiedCustomer.riskScore = this.calculateRiskScore(unifiedCustomer);
-        unifiedCustomer.predictedChurn = unifiedCustomer.riskScore > 70;
+        unifiedCustomer.predictedChurn = (unifiedCustomer.riskScore || 0) > 70;
 
         unifiedCustomers.push(unifiedCustomer);
       }
 
-      // Process remaining Triple Whale customers that weren't matched
+      // Process remaining Triple Whale customers
       for (const customer of tripleWhaleCustomers.data) {
         if (!customer.email || processedEmails.has(customer.email.toLowerCase())) {
           continue;
@@ -87,20 +107,20 @@ export class DataSyncEngine {
           firstName: customer.firstName,
           lastName: customer.lastName,
           totalSpent: customer.totalSpent,
-          orderCount: customer.orderCount,
+          orderCount: customer.ordersCount,
           averageOrderValue: customer.averageOrderValue,
-          lifetimeValue: customer.lifetimeValue,
+          lifetimeValue: customer.totalSpent,
           engagementScore: 0, // No email engagement data
           riskScore: this.calculateRiskScore({
             email: customer.email,
             totalSpent: customer.totalSpent,
-            orderCount: customer.orderCount,
+            orderCount: customer.ordersCount,
             averageOrderValue: customer.averageOrderValue,
-            lifetimeValue: customer.lifetimeValue,
+            lifetimeValue: customer.totalSpent,
           } as UnifiedCustomer),
         };
 
-        unifiedCustomer.predictedChurn = unifiedCustomer.riskScore > 70;
+        unifiedCustomer.predictedChurn = (unifiedCustomer.riskScore || 0) > 70;
         unifiedCustomers.push(unifiedCustomer);
       }
 
@@ -113,46 +133,41 @@ export class DataSyncEngine {
   }
 
   /**
-   * Calculate revenue attribution between email marketing and total revenue
+   * Calculate revenue attribution between email and other channels
    */
-  async calculateRevenueAttribution(dateRange: DateRange): Promise<RevenueAttribution> {
+  async calculateRevenueAttribution(dateRange?: DateRange): Promise<RevenueAttribution> {
     try {
-      console.log('Calculating revenue attribution...');
-
+      // Fetch data from both platforms
       const [klaviyoMetrics, tripleWhaleMetrics, klaviyoCampaigns, tripleWhaleOrders] = await Promise.all([
-        this.klaviyoClient.getMetrics(dateRange),
-        this.tripleWhaleClient.getMetrics(dateRange),
-        this.klaviyoClient.getCampaigns(dateRange),
-        this.tripleWhaleClient.getOrders(dateRange)
+        this.klaviyoClient.getMetrics(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
+        this.tripleWhaleClient.getMetrics(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
+        this.klaviyoClient.getCampaigns(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
+        this.tripleWhaleClient.getOrders(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() })
       ]);
 
-      const emailRevenue = klaviyoMetrics.data.emailRevenue;
-      const totalRevenue = tripleWhaleMetrics.data.totalRevenue;
+      // Calculate basic attribution metrics
+      const emailRevenue = klaviyoMetrics.data?.emailRevenue || 0;
+      const totalRevenue = tripleWhaleMetrics.data?.totalRevenue || 0;
       const attributionRate = totalRevenue > 0 ? (emailRevenue / totalRevenue) * 100 : 0;
 
-      // Calculate campaign-level attribution
-      const campaignAttributions: CampaignAttribution[] = klaviyoCampaigns.data.map(campaign => {
-        // Match orders to campaigns by timestamp and source
-        const campaignOrders = tripleWhaleOrders.data.filter(order => {
-          const orderDate = new Date(order.createdAt);
-          const campaignDate = new Date(campaign.sentAt);
-          const timeDiff = orderDate.getTime() - campaignDate.getTime();
-          
-          // Consider orders within 7 days of campaign send as potentially attributed
-          return timeDiff > 0 && timeDiff <= 7 * 24 * 60 * 60 * 1000 && 
-                 (order.source === 'email' || order.campaign === campaign.name);
-        });
+      // Calculate campaign attributions
+      const campaignAttributions: CampaignAttribution[] = klaviyoCampaigns.data?.map((campaign: KlaviyoCampaign) => {
+        // Find matching orders from Triple Whale
+        const matchingOrders = tripleWhaleOrders.data?.filter((order: TripleWhaleOrder) => 
+          order.source === 'klaviyo' && order.campaign === campaign.name
+        ) || [];
 
-        const campaignRevenue = campaignOrders.reduce((sum, order) => sum + order.total, 0);
+        const campaignRevenue = matchingOrders.reduce((sum: number, order: TripleWhaleOrder) => 
+          sum + (order.total || 0), 0);
 
         return {
           campaignId: campaign.id,
           campaignName: campaign.name,
           revenue: campaignRevenue,
-          orders: campaignOrders.length,
+          orders: matchingOrders.length,
           attributionType: 'direct' as const,
         };
-      });
+      }) || [];
 
       // Calculate direct vs assisted attribution
       const directAttribution = campaignAttributions.reduce((sum, attr) => sum + attr.revenue, 0);
@@ -173,34 +188,31 @@ export class DataSyncEngine {
   }
 
   /**
-   * Sync data from both platforms and cache results
+   * Sync all data from both platforms
    */
-  async syncAllData(dateRange: DateRange): Promise<{
-    klaviyoMetrics: any;
-    tripleWhaleMetrics: any;
+  async syncAllData(dateRange?: DateRange): Promise<{
+    klaviyoMetrics: KlaviyoMetrics;
+    tripleWhaleMetrics: TripleWhaleMetrics;
     unifiedCustomers: UnifiedCustomer[];
     revenueAttribution: RevenueAttribution;
   }> {
     try {
-      console.log('Starting full data sync...');
-
+      // Fetch all data in parallel
       const [klaviyoMetrics, tripleWhaleMetrics, unifiedCustomers, revenueAttribution] = await Promise.all([
-        this.klaviyoClient.getMetrics(dateRange),
-        this.tripleWhaleClient.getMetrics(dateRange),
+        this.klaviyoClient.getMetrics(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
+        this.tripleWhaleClient.getMetrics(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
         this.matchCustomers(dateRange),
         this.calculateRevenueAttribution(dateRange)
       ]);
 
-      console.log('Full data sync completed successfully');
-
       return {
-        klaviyoMetrics: klaviyoMetrics.data,
-        tripleWhaleMetrics: tripleWhaleMetrics.data,
+        klaviyoMetrics: klaviyoMetrics.data || {} as KlaviyoMetrics,
+        tripleWhaleMetrics: tripleWhaleMetrics.data || {} as TripleWhaleMetrics,
         unifiedCustomers,
         revenueAttribution,
       };
     } catch (error) {
-      console.error('Error during full data sync:', error);
+      console.error('Error syncing all data:', error);
       throw error;
     }
   }
@@ -231,14 +243,14 @@ export class DataSyncEngine {
   /**
    * Get Klaviyo profiles with enhanced data
    */
-  private async getKlaviyoProfiles(dateRange?: DateRange): Promise<any[]> {
+  private async getKlaviyoProfiles(): Promise<{ data: KlaviyoProfile[] }> {
     try {
       // This would typically fetch profiles from Klaviyo
       // For now, return mock data structure
-      return [];
+      return { data: [] };
     } catch (error) {
       console.error('Error fetching Klaviyo profiles:', error);
-      return [];
+      return { data: [] };
     }
   }
 
@@ -250,54 +262,51 @@ export class DataSyncEngine {
 
     // Email engagement (40% weight)
     if (customer.emailEngagement) {
-      const emailScore = (customer.emailEngagement.openRate * 0.6 + customer.emailEngagement.clickRate * 0.4);
-      score += emailScore * 0.4;
+      score += (customer.emailEngagement.openRate || 0) * 0.2;
+      score += (customer.emailEngagement.clickRate || 0) * 0.2;
     }
 
     // Purchase behavior (60% weight)
-    if (customer.orderCount > 0) {
-      const purchaseScore = Math.min(100, (customer.orderCount * 10) + (customer.averageOrderValue / 10));
-      score += purchaseScore * 0.6;
+    if (customer.orderCount && customer.orderCount > 0) {
+      score += Math.min(customer.orderCount * 5, 30); // Max 30 points for orders
+      score += Math.min((customer.averageOrderValue || 0) / 10, 30); // Max 30 points for AOV
     }
 
-    return Math.round(Math.min(100, score));
+    return Math.min(Math.round(score), 100);
   }
 
   /**
-   * Calculate churn risk score
+   * Calculate risk score for customer churn prediction
    */
   private calculateRiskScore(customer: UnifiedCustomer): number {
-    let riskScore = 0;
+    let risk = 0;
 
-    // Low order count increases risk
-    if (customer.orderCount === 0) {
-      riskScore += 40;
-    } else if (customer.orderCount === 1) {
-      riskScore += 25;
-    } else if (customer.orderCount < 5) {
-      riskScore += 10;
+    // Low engagement increases risk
+    if (customer.engagementScore !== undefined && customer.engagementScore < 20) {
+      risk += 30;
     }
 
-    // Low email engagement increases risk
-    if (customer.emailEngagement) {
-      if (customer.emailEngagement.openRate < 10) {
-        riskScore += 20;
-      } else if (customer.emailEngagement.openRate < 25) {
-        riskScore += 10;
+    // Low order frequency increases risk
+    if (customer.orderCount !== undefined && customer.orderCount < 2) {
+      risk += 25;
+    }
+
+    // Low total spent increases risk
+    if (customer.totalSpent !== undefined && customer.totalSpent < 100) {
+      risk += 20;
+    }
+
+    // Recent engagement reduces risk
+    if (customer.emailEngagement?.lastEngaged) {
+      const daysSinceEngagement = Math.floor(
+        (Date.now() - new Date(customer.emailEngagement.lastEngaged).getTime()) / (1000 * 60 * 60 * 24)
+      );
+      
+      if (daysSinceEngagement > 30) {
+        risk += 25;
       }
-
-      if (customer.emailEngagement.clickRate < 2) {
-        riskScore += 15;
-      }
     }
 
-    // Low spending increases risk
-    if (customer.totalSpent < 50) {
-      riskScore += 15;
-    } else if (customer.totalSpent < 100) {
-      riskScore += 5;
-    }
-
-    return Math.min(100, riskScore);
+    return Math.min(Math.round(risk), 100);
   }
 }
