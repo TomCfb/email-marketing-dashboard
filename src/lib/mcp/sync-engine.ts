@@ -141,7 +141,7 @@ export class DataSyncEngine {
       const [klaviyoMetrics, tripleWhaleMetrics, klaviyoCampaigns, tripleWhaleOrders] = await Promise.all([
         this.klaviyoClient.getMetrics(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
         this.tripleWhaleClient.getMetrics(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
-        this.klaviyoClient.getCampaigns(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() }),
+        this.klaviyoClient.getCampaigns(),
         this.tripleWhaleClient.getOrders(dateRange || { from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), to: new Date() })
       ]);
 

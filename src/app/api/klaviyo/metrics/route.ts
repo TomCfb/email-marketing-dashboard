@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { KlaviyoMCPClient } from '@/lib/mcp/klaviyo';
-import { DateRange } from '@/lib/types';
 import { logger } from '@/lib/logger';
-import { z } from 'zod';
-
-const querySchema = z.object({
-  from: z.string().transform((str) => new Date(str)),
-  to: z.string().transform((str) => new Date(str)),
-});
+import { DateRange } from '@/lib/types';
 
 export async function GET(request: NextRequest) {
   const requestId = `api_klaviyo_metrics_${Date.now()}`;
@@ -105,7 +99,6 @@ export async function GET(request: NextRequest) {
         requestId,
         timestamp: new Date().toISOString(),
       },
-      { error: 'Failed to fetch Klaviyo metrics' },
       { status: 500 }
     );
   }
