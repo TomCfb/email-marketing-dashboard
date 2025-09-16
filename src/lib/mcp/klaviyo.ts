@@ -92,13 +92,13 @@ export class KlaviyoMCPClient {
       try {
         const profilesResponse = await this.makeRequest<{data: KlaviyoProfile[]}>('/profiles?page[size]=100');
         subscriberCount = profilesResponse.data?.data?.length || 0;
-        logger.info('KLAVIYO_METRICS', `Successfully fetched ${subscriberCount} profiles`);
+        logger.info('KLAVIYO_METRICS', `Successfully fetched ${subscriberCount} real profiles`);
       } catch (error) {
-        logger.error('KLAVIYO_METRICS', 'Failed to fetch profiles, using fallback', {
-          fallbackValue: 2340,
+        logger.error('KLAVIYO_METRICS', 'Failed to fetch real profiles - NO FALLBACK', {
           requestId,
-        }, error as Error);
-        subscriberCount = 2340;
+          error: (error as Error).message
+        });
+        throw new Error(`Failed to fetch real Klaviyo profiles: ${(error as Error).message}`);
       }
 
       // Get campaigns for metrics calculation
@@ -109,9 +109,11 @@ export class KlaviyoMCPClient {
         campaigns = campaignsResponse.data?.data || [];
         logger.info('KLAVIYO_METRICS', `Successfully fetched ${campaigns.length} campaigns for metrics calculation`);
       } catch (error) {
-        logger.error('KLAVIYO_METRICS', 'Failed to fetch campaigns, using empty array', {
+        logger.error('KLAVIYO_METRICS', 'Failed to fetch real campaigns - NO FALLBACK', {
           requestId,
-        }, error as Error);
+          error: (error as Error).message
+        });
+        throw new Error(`Failed to fetch real Klaviyo campaigns: ${(error as Error).message}`);
       }
 
       // Get flows count
@@ -122,11 +124,11 @@ export class KlaviyoMCPClient {
         flowCount = flowsResponse.data?.data?.length || 0;
         logger.info('KLAVIYO_METRICS', `Successfully fetched ${flowCount} flows`);
       } catch (error) {
-        logger.error('KLAVIYO_METRICS', 'Failed to fetch flows, using fallback', {
-          fallbackValue: 5,
+        logger.error('KLAVIYO_METRICS', 'Failed to fetch real flows - NO FALLBACK', {
           requestId,
-        }, error as Error);
-        flowCount = 5;
+          error: (error as Error).message
+        });
+        throw new Error(`Failed to fetch real Klaviyo flows: ${(error as Error).message}`);
       }
 
       logger.debug('KLAVIYO_METRICS', 'Processing campaign statistics...');
@@ -142,62 +144,56 @@ export class KlaviyoMCPClient {
       let totalClicks = 0;
       let totalSent = 0;
 
-      // Calculate metrics from campaigns - use realistic estimates based on sent campaigns
-      let sentCampaigns = 0;
+      // Calculate metrics from REAL campaign statistics only
       for (const campaign of campaigns) {
         if (campaign.attributes?.status === 'sent') {
-          sentCampaigns++;
-          
-          // Use realistic estimates based on fatbike e-commerce industry standards
-          const estimatedRecipients = Math.floor(Math.random() * 800) + 200; // 200-1000 recipients per campaign
-          const estimatedOpens = Math.floor(estimatedRecipients * (0.22 + Math.random() * 0.08)); // 22-30% open rate
-          const estimatedClicks = Math.floor(estimatedOpens * (0.03 + Math.random() * 0.04)); // 3-7% click rate
-          const estimatedRevenue = estimatedClicks * (50 + Math.random() * 100); // €50-150 per click
-          
-          totalSent += estimatedRecipients;
-          totalOpens += estimatedOpens;
-          totalClicks += estimatedClicks;
-          emailRevenue += estimatedRevenue;
-          
-          logger.debug('KLAVIYO_METRICS', `Campaign ${campaign.id} metrics`, {
-            recipients: estimatedRecipients,
-            opens: estimatedOpens,
-            clicks: estimatedClicks,
-            revenue: estimatedRevenue
-          });
+          try {
+            // Fetch real campaign statistics using Klaviyo Reporting API
+            const reportPayload = {
+              data: {
+                type: 'campaign-values-report',
+                attributes: {
+                  timeframe: { key: 'last_12_months' },
+                  filter: `equals(campaign_id,"${campaign.id}")`,
+                  statistics: ['opens', 'clicks', 'recipients', 'revenue', 'open_rate', 'click_rate']
+                }
+              }
+            };
+
+            const statsResponse = await this.makeRequest<{data: {attributes: {results: Array<{statistics: Record<string, number>}>}}}>(
+              '/campaign-values-reports/', 
+              'POST',
+              reportPayload
+            );
+            
+            const stats = statsResponse.data?.data?.attributes?.results?.[0]?.statistics;
+            
+            if (stats) {
+              totalSent += stats.recipients || 0;
+              totalOpens += stats.opens || 0;
+              totalClicks += stats.clicks || 0;
+              emailRevenue += stats.revenue || 0;
+              
+              logger.info('KLAVIYO_METRICS', `Real campaign stats for ${campaign.id}`, {
+                recipients: stats.recipients,
+                opens: stats.opens,
+                clicks: stats.clicks,
+                revenue: stats.revenue
+              });
+            }
+          } catch (statsError) {
+            logger.error('KLAVIYO_METRICS', `Failed to fetch real stats for campaign ${campaign.id}`, {
+              error: (statsError as Error).message
+            });
+            // NO FALLBACK - Skip this campaign if real data unavailable
+          }
         }
       }
       
-      // Always generate baseline metrics if we have campaigns but no sent ones
-      if (sentCampaigns === 0 && campaigns.length > 0) {
-        const activeCampaigns = Math.min(campaigns.length, 15);
-        totalSent = activeCampaigns * 650;
-        totalOpens = Math.floor(totalSent * 0.26);
-        totalClicks = Math.floor(totalOpens * 0.055);
-        emailRevenue = totalClicks * 85;
-        
-        logger.info('KLAVIYO_METRICS', 'Using baseline metrics for campaigns without sent status', {
-          activeCampaigns,
-          totalSent,
-          totalOpens,
-          totalClicks,
-          emailRevenue
-        });
-      }
-      
-      // If no campaigns at all, use minimum baseline
-      if (campaigns.length === 0) {
-        totalSent = 2500;
-        totalOpens = Math.floor(totalSent * 0.24);
-        totalClicks = Math.floor(totalOpens * 0.05);
-        emailRevenue = totalClicks * 80;
-        
-        logger.info('KLAVIYO_METRICS', 'Using minimum baseline metrics - no campaigns found', {
-          totalSent,
-          totalOpens,
-          totalClicks,
-          emailRevenue
-        });
+      // NO FALLBACK - If no real campaign metrics available, throw error
+      if (totalSent === 0 && totalOpens === 0 && totalClicks === 0 && emailRevenue === 0) {
+        logger.error('KLAVIYO_METRICS', 'No real campaign statistics available from Klaviyo API');
+        throw new Error('No real Klaviyo campaign statistics available - check API permissions for campaign reporting');
       }
       totalRevenue = emailRevenue;
 
