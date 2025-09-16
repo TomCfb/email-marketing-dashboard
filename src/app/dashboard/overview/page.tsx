@@ -66,9 +66,13 @@ export default function OverviewPage() {
   const campaigns = campaignsResponse?.data;
 
   const isLoading = klaviyoLoading || tripleWhaleLoading;
-  const hasError = klaviyoError || tripleWhaleError;
+  const hasKlaviyoData = klaviyoMetrics && !klaviyoError;
+  const hasTripleWhaleData = tripleWhaleMetrics && !tripleWhaleError;
+  
+  // Only show error if both APIs fail
+  const hasCriticalError = klaviyoError && tripleWhaleError;
 
-  if (hasError) {
+  if (hasCriticalError) {
     return (
       <div className="space-y-6">
         <Alert variant="destructive">
@@ -81,8 +85,33 @@ export default function OverviewPage() {
     );
   }
 
+  // Show warnings for individual API failures
+  const showWarnings = klaviyoError || tripleWhaleError;
+
   return (
     <div className="space-y-6">
+      {/* API Status Warnings */}
+      {showWarnings && (
+        <div className="space-y-2">
+          {klaviyoError && (
+            <Alert variant="default">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Klaviyo API unavailable. Showing partial data from available sources.
+              </AlertDescription>
+            </Alert>
+          )}
+          {tripleWhaleError && (
+            <Alert variant="default">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Triple Whale API unavailable. Initialize MCP server with: npx @triplewhale/mcp-server-triplewhale init $TRIPLE_WHALE_API_KEY
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
+
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Overview Dashboard</h1>
