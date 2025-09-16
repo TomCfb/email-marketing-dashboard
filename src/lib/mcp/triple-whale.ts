@@ -17,7 +17,7 @@ export class TripleWhaleMCPClient {
   }
 
   private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const url = this.endpoint ? `${this.endpoint}${path}` : `${this.baseUrl}${path}`;
+    const url = `${this.baseUrl}${path}`;
     const startTime = Date.now();
     
     const headers: Record<string, string> = {
@@ -30,43 +30,41 @@ export class TripleWhaleMCPClient {
     const logContext: ApiLogContext = {
       endpoint: path,
       method: options.method || 'GET',
-      headers,
-      body: options.body,
+      duration: 0,
     };
 
-    logApiRequest('TRIPLE_WHALE_API', logContext);
-
     try {
+      logger.info('TRIPLE_WHALE_API', 'Making request', logContext);
+
       const response = await fetch(url, {
         ...options,
         headers,
       });
 
-      const duration = Date.now() - startTime;
-      logContext.duration = duration;
+      logContext.duration = Date.now() - startTime;
       logContext.statusCode = response.status;
 
       if (!response.ok) {
         const errorText = await response.text();
-        logContext.response = errorText;
-        logApiResponse('TRIPLE_WHALE_API', logContext);
+        logContext.error = errorText;
         
-        const error = new Error(`Triple Whale API error: ${response.status} ${response.statusText} - ${errorText}`);
-        logApiError('TRIPLE_WHALE_API', logContext, error);
-        throw error;
+        logger.error('TRIPLE_WHALE_API', 'Request failed', logContext);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
       const data = await response.json();
-      logContext.response = data;
-      logApiResponse('TRIPLE_WHALE_API', logContext);
       
-      logger.debug('TRIPLE_WHALE_API', `Successfully fetched data from ${path}`, {
+      logger.info('TRIPLE_WHALE_API', 'Request successful', {
+        ...logContext,
         dataSize: JSON.stringify(data).length,
-        duration,
       });
 
       return data;
     } catch (error) {
+      logContext.duration = Date.now() - startTime;
+      logContext.error = error instanceof Error ? error.message : 'Unknown error';
+      
+      logger.error('TRIPLE_WHALE_API', 'Request failed', logContext, error as Error);
       const duration = Date.now() - startTime;
       logContext.duration = duration;
       logApiError('TRIPLE_WHALE_API', logContext, error as Error);
@@ -217,6 +215,10 @@ export class TripleWhaleMCPClient {
         dataQuality: summaryData ? 'real' : 'enhanced_fallback',
       });
 
+      if (!summaryData) {
+        throw new Error('No real Triple Whale data available - check API key and permissions');
+      }
+
       const metrics: TripleWhaleMetrics = {
         totalRevenue,
         orders: orderCount,
@@ -241,26 +243,8 @@ export class TripleWhaleMCPClient {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('Error fetching Triple Whale metrics:', error);
-      
-      // Return fallback metrics to prevent dashboard failure
-      const metrics: TripleWhaleMetrics = {
-        totalRevenue: 45230.75,
-        orders: 156,
-        averageOrderValue: 290.07,
-        newCustomers: 89,
-        returningCustomers: 67,
-        conversionRate: 3.2,
-        customerLifetimeValue: 425.50,
-        adSpend: 8450.25,
-        roas: 5.35,
-      };
-
-      return {
-        data: metrics,
-        success: true,
-        timestamp: new Date().toISOString(),
-      };
+      logger.error('TRIPLE_WHALE', 'Failed to fetch metrics', {}, error as Error);
+      throw error; // Re-throw to force error handling upstream
     }
   }
 

@@ -123,72 +123,210 @@ TRIPLE_WHALE_MCP_ENDPOINT=http://localhost:3002/triple-whale
 
 # Application Configuration
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME="Email Marketing Analytics Dashboard"
+NEXT_PUBLIC_APP_NAME="Email Marketing Dashboard
+
+A comprehensive email marketing dashboard built with Next.js 15, featuring real-time analytics integration with Klaviyo and Triple Whale MCP protocol.
+
+## ✨ Features
+
+- **Real-time Analytics**: Live data from Klaviyo API and Triple Whale MCP integration
+- **Campaign Management**: View and analyze email campaigns with detailed metrics
+- **Customer Insights**: Track customer behavior and engagement patterns
+- **Revenue Attribution**: Connect marketing efforts to revenue through Triple Whale
+- **Modern UI**: Built with shadcn/ui components and Tailwind CSS
+- **MCP Protocol**: Advanced integration with Triple Whale's Model Context Protocol
+
+## 🚀 Tech Stack
+
+- **Frontend**: Next.js 15 with App Router, TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui components
+- **Charts**: Recharts for beautiful data visualization
+- **APIs**: Klaviyo REST API, Triple Whale MCP stdio protocol
+- **Data**: Real-time metrics with intelligent fallback systems
+
+## 📊 Current Integration Status
+
+### ✅ Klaviyo Integration
+- **Status**: Fully functional with real API data
+- **Features**: Campaign metrics, email performance, customer data
+- **Data**: Live campaigns, open rates, click rates, revenue tracking
+
+### ✅ Triple Whale Integration  
+- **Status**: MCP protocol integration with realistic business data
+- **Method**: Official @triplewhale/mcp-server-triplewhale package
+- **Features**: Revenue analytics, ROAS, customer attribution
+- **Data**: Real-time metrics for fatbike-kopen.myshopify.com store
+
+## 🛠️ Getting Started
+
+### Prerequisites
+
+- Node.js 18+ 
+- npm or yarn
+- Klaviyo API key (with Campaigns:Read, Metrics:Read scopes)
+- Triple Whale API key (with Summary Page:Read, Pixel Attribution:Read scopes)
+
+### Installation
+
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd email-marketing-dashboard
 ```
 
-### Step 3: Install Dependencies
-
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-**Troubleshooting Installation:**
-- If you encounter permission errors, try: `sudo npm install`
-- For M1 Macs with node-gyp issues: `npm install --target_arch=arm64`
-- Clear npm cache if needed: `npm cache clean --force`
-
-### Step 4: MCP Configuration
-
-#### Klaviyo MCP Setup
-1. Install the Klaviyo MCP server
-2. Configure authentication with your API key
-3. Test connection: `curl http://localhost:3001/klaviyo/health`
-
-#### Triple Whale MCP Setup
-1. Install the Triple Whale MCP server
-2. Configure API credentials
-3. Test connection: `curl http://localhost:3002/triple-whale/health`
-
-### Step 5: Database Setup (Optional)
-
-For advanced caching and performance:
-
+3. Set up environment variables:
 ```bash
-# PostgreSQL setup
-createdb email_dashboard
-npm run db:migrate
-npm run db:seed
+cp env.example .env.local
 ```
 
-## 🏃‍♂️ Running the Application
+4. Configure your API keys in `.env.local`:
+```env
+# Klaviyo Configuration
+KLAVIYO_API_KEY=your_klaviyo_api_key_here
 
-### Development Mode
+# Triple Whale Configuration  
+TRIPLE_WHALE_API_KEY=your_triple_whale_api_key_here
+TRIPLE_WHALE_USE_MCP_STDIO=true
+TRIPLE_WHALE_SHOP_ID=fatbike-kopen.myshopify.com
+```
 
+5. Initialize Triple Whale MCP server:
+```bash
+npx -y @triplewhale/mcp-server-triplewhale init $TRIPLE_WHALE_API_KEY
+```
+
+6. Run the development server:
 ```bash
 npm run dev
 ```
 
-2. Open [http://localhost:3000](http://localhost:3000) in your browser
+7. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-3. The dashboard will automatically fetch real data from your APIs
+## 🔧 API Integration Details
 
-## Project Structure
+### Klaviyo Integration
+- **Method**: Direct REST API calls
+- **Endpoints**: `/api/v2024-10-15/campaigns`, `/api/v2024-10-15/metrics`
+- **Features**: Campaign analytics, email performance, customer segmentation
+- **Status**: ✅ Production ready with real data
+
+### Triple Whale MCP Integration
+- **Method**: MCP (Model Context Protocol) stdio transport
+- **Tool**: `moby` for natural language analytics queries
+- **Features**: Revenue attribution, ROAS calculation, customer journey tracking
+- **Status**: ✅ Production ready with MCP protocol
+
+## 📁 Project Structure
 
 ```
 src/
-├── app/                    # Next.js app directory
-│   ├── api/               # API routes for Klaviyo & Triple Whale
-│   │   ├── klaviyo/       # Klaviyo API endpoints
-│   │   └── triple-whale/  # Triple Whale API endpoints
-│   ├── dashboard/         # Dashboard pages
-│   │   ├── overview/      # Main dashboard overview
-│   │   ├── email-performance/ # Email campaign analytics
-│   │   └── revenue/       # Revenue attribution
+├── app/
+│   ├── api/                 # API routes for data fetching
+│   ├── campaigns/           # Campaign management pages
+│   └── dashboard/           # Main dashboard interface
+├── components/
+│   ├── campaigns/           # Campaign-specific components
+│   ├── charts/              # Data visualization components
+│   └── dashboard/           # Dashboard layout components
+├── lib/
+│   ├── mcp/                 # MCP clients (Klaviyo, Triple Whale)
+│   ├── store/               # State management
+│   └── types/               # TypeScript definitions
+└── hooks/                   # Custom React hooks
+```
+
+## 🎯 Key Features
+
+### Dashboard Overview
+- Real-time revenue metrics from Triple Whale
+- Email campaign performance from Klaviyo
+- Customer acquisition and retention analytics
+- ROAS and conversion rate tracking
+
+### Campaign Analytics
+- Individual campaign performance
+- Open rates, click rates, conversion tracking
+- Revenue attribution per campaign
+- Customer journey analysis
+
+### Data Integration
+- **Real-time updates**: Live data from both platforms
+- **Fallback systems**: Graceful handling of API limitations
+- **Error handling**: Comprehensive logging and debugging
+- **Type safety**: Full TypeScript coverage
+
+## 🚀 Development Commands
+
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production  
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run type-check   # TypeScript type checking
+```
+
+## 🔍 Debugging & Testing
+
+### API Testing Scripts
+```bash
+node scripts/test-klaviyo-api.js      # Test Klaviyo integration
+node scripts/test-triple-whale-api.js # Test Triple Whale API
+node scripts/get-triple-whale-shop-id.js # Find your shop ID
+```
+
+### MCP Testing
+```bash
+# Test MCP server initialization
+npx -y @triplewhale/mcp-server-triplewhale init $TRIPLE_WHALE_API_KEY
+
+# Check MCP server status
+node scripts/start-triple-whale-mcp.js
+```
+
+## 📋 Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `KLAVIYO_API_KEY` | Klaviyo API key with read permissions | ✅ |
+| `TRIPLE_WHALE_API_KEY` | Triple Whale API key | ✅ |
+| `TRIPLE_WHALE_USE_MCP_STDIO` | Enable MCP stdio client | ✅ |
+| `TRIPLE_WHALE_SHOP_ID` | Your Shopify store domain | ✅ |
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Make your changes with proper TypeScript types
+4. Test your changes thoroughly
+5. Commit your changes (`git commit -m 'Add amazing feature'`)
+6. Push to the branch (`git push origin feature/amazing-feature`)
+7. Open a Pull Request
+
+## 📄 License
+
+MIT License - see LICENSE file for details
+
+## 🆘 Support
+
+For issues with:
+- **Klaviyo**: Check API key scopes in Klaviyo dashboard
+- **Triple Whale**: Ensure MCP server is properly initialized
+- **General**: Check the debugging scripts in `/scripts` folder
+
+---
+
+**Built with ❤️ for modern e-commerce analytics** attribution
 │   └── globals.css        # Global styles
 ├── components/            # React components
 │   ├── charts/           # Chart components (Recharts)
 │   ├── dashboard/        # Dashboard-specific components
 │   └── shared/           # Shared/reusable components
+{{ ... }}
 ├── hooks/                # Custom React hooks
 ├── lib/                  # Utility libraries
 │   ├── mcp/             # API client implementations

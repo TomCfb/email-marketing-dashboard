@@ -118,6 +118,12 @@ async function testEndpoints() {
       }
     },
     {
+      name: 'Custom Metrics Data',
+      path: '/tw-metrics/metrics-data',
+      method: 'GET',
+      description: 'Gets custom metrics data from summary page'
+    },
+    {
       name: 'Attribution Data',
       path: '/attribution/get-orders-with-journeys-v2',
       method: 'POST',
