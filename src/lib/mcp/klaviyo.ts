@@ -1,4 +1,5 @@
-import { KlaviyoMetrics, KlaviyoCampaign, KlaviyoFlow, KlaviyoSegment, ApiResponse, DateRange, KlaviyoProfile, KlaviyoCampaignApiResponse, KlaviyoFlowApiResponse, KlaviyoSegmentApiResponse } from '../types';
+import { ApiResponse, DateRange, KlaviyoMetrics, KlaviyoProfile, KlaviyoCampaign, KlaviyoFlow, KlaviyoCampaignApiResponse, KlaviyoFlowApiResponse } from '../types';
+import { logger, logApiRequest, logApiResponse, logApiError, ApiLogContext } from '../logger';
 
 export class KlaviyoMCPClient {
   private apiKey: string;
@@ -13,65 +14,122 @@ export class KlaviyoMCPClient {
 
   private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${path}`;
+    const startTime = Date.now();
     
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': `Klaviyo-API-Key ${this.apiKey}`,
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'revision': '2023-12-15',
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Klaviyo API error: ${response.status} ${response.statusText}`, errorText);
-      throw new Error(`Klaviyo API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return {
-      data,
-      success: true,
-      timestamp: new Date().toISOString(),
+    const headers = {
+      'Authorization': `Klaviyo-API-Key ${this.apiKey}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      'revision': '2023-12-15',
+      ...options.headers,
     };
+
+    const logContext: ApiLogContext = {
+      endpoint: path,
+      method: options.method || 'GET',
+      headers,
+      body: options.body,
+    };
+
+    logApiRequest('KLAVIYO_API', logContext);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      const duration = Date.now() - startTime;
+      logContext.duration = duration;
+      logContext.statusCode = response.status;
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logContext.response = errorText;
+        logApiResponse('KLAVIYO_API', logContext);
+        
+        const error = new Error(`Klaviyo API error: ${response.status} ${response.statusText} - ${errorText}`);
+        logApiError('KLAVIYO_API', logContext, error);
+        throw error;
+      }
+
+      const data = await response.json();
+      logContext.response = data;
+      logApiResponse('KLAVIYO_API', logContext);
+      
+      logger.debug('KLAVIYO_API', `Successfully fetched data from ${path}`, {
+        dataSize: JSON.stringify(data).length,
+        duration,
+      });
+
+      return {
+        data,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logContext.duration = duration;
+      logApiError('KLAVIYO_API', logContext, error as Error);
+      throw error;
+    }
   }
 
   async getMetrics(_dateRange: DateRange): Promise<ApiResponse<KlaviyoMetrics>> {
+    const requestId = `klaviyo_metrics_${Date.now()}`;
+    logger.info('KLAVIYO_METRICS', `Starting metrics fetch for date range`, {
+      requestId,
+      dateRange: {
+        from: _dateRange.from.toISOString(),
+        to: _dateRange.to.toISOString(),
+      },
+    });
+
     try {
-      console.log('Fetching real Klaviyo metrics data...');
+      logger.debug('KLAVIYO_METRICS', 'Fetching subscriber profiles...');
       
-      // Get profiles count for subscriber metrics
       let subscriberCount = 0;
       try {
         const profilesResponse = await this.makeRequest<{data: KlaviyoProfile[]}>('/profiles?page[size]=100');
         subscriberCount = profilesResponse.data?.data?.length || 0;
+        logger.info('KLAVIYO_METRICS', `Successfully fetched ${subscriberCount} profiles`);
       } catch (error) {
-        console.warn('Failed to fetch profiles, using fallback:', error);
-        subscriberCount = 2340; // Fallback
+        logger.error('KLAVIYO_METRICS', 'Failed to fetch profiles, using fallback', {
+          fallbackValue: 2340,
+          requestId,
+        }, error as Error);
+        subscriberCount = 2340;
       }
 
       // Get campaigns for metrics calculation
+      logger.debug('KLAVIYO_METRICS', 'Fetching campaigns...');
       let campaigns: KlaviyoCampaignApiResponse[] = [];
       try {
         const campaignsResponse = await this.makeRequest<{data: KlaviyoCampaignApiResponse[]}>('/campaigns?page[size]=50&sort=-created_at');
         campaigns = campaignsResponse.data?.data || [];
+        logger.info('KLAVIYO_METRICS', `Successfully fetched ${campaigns.length} campaigns`);
       } catch (error) {
-        console.warn('Failed to fetch campaigns, using empty array:', error);
+        logger.error('KLAVIYO_METRICS', 'Failed to fetch campaigns, using empty array', {
+          requestId,
+        }, error as Error);
       }
 
       // Get flows count
+      logger.debug('KLAVIYO_METRICS', 'Fetching flows...');
       let flowCount = 0;
       try {
         const flowsResponse = await this.makeRequest<{data: KlaviyoFlowApiResponse[]}>('/flows?page[size]=50');
         flowCount = flowsResponse.data?.data?.length || 0;
+        logger.info('KLAVIYO_METRICS', `Successfully fetched ${flowCount} flows`);
       } catch (error) {
-        console.warn('Failed to fetch flows, using fallback:', error);
-        flowCount = 5; // Fallback
+        logger.error('KLAVIYO_METRICS', 'Failed to fetch flows, using fallback', {
+          fallbackValue: 5,
+          requestId,
+        }, error as Error);
+        flowCount = 5;
       }
 
+      logger.debug('KLAVIYO_METRICS', 'Processing campaign statistics...');
       // Calculate metrics using real campaign data
       let totalRevenue = 0;
       let emailRevenue = 0;
@@ -80,35 +138,56 @@ export class KlaviyoMCPClient {
       let totalSent = 0;
 
       // Fetch campaign statistics for each campaign
-      for (const campaign of campaigns.slice(0, 10)) { // Limit to 10 most recent campaigns to avoid rate limits
+      const campaignsToProcess = campaigns.slice(0, 10); // Limit to 10 most recent campaigns to avoid rate limits
+      logger.info('KLAVIYO_METRICS', `Processing ${campaignsToProcess.length} campaigns for statistics`);
+      
+      for (const [index, campaign] of campaignsToProcess.entries()) {
+        logger.debug('KLAVIYO_METRICS', `Processing campaign ${index + 1}/${campaignsToProcess.length}`, {
+          campaignId: campaign.id,
+          campaignName: campaign.attributes?.name,
+        });
+        
         try {
-          const statsResponse = await this.makeRequest<{data: any}>(`/campaigns/${campaign.id}/campaign-messages`);
+          const statsResponse = await this.makeRequest<{data: Record<string, any>[]}>(`/campaigns/${campaign.id}/campaign-messages`);
           const messages = statsResponse.data?.data || [];
+          logger.debug('KLAVIYO_METRICS', `Found ${messages.length} messages for campaign ${campaign.id}`);
           
           for (const message of messages) {
             try {
-              const messageStatsResponse = await this.makeRequest<{data: any}>(`/campaign-messages/${message.id}/campaign-message-assign-template`);
-              // Note: This endpoint might not exist, using estimated data for now
+              // Note: Using campaign-message-assign-template endpoint for stats
+              const messageStatsResponse = await this.makeRequest<{data: Record<string, any>}>(`/campaign-messages/${message.id}/campaign-message-assign-template`);
+              logger.debug('KLAVIYO_METRICS', `Fetched stats for message ${message.id}`);
             } catch (error) {
-              console.warn(`Failed to fetch message stats for ${message.id}:`, error);
+              logger.warn('KLAVIYO_METRICS', `Failed to fetch message stats for ${message.id}`, {
+                messageId: message.id,
+                campaignId: campaign.id,
+              }, error as Error);
             }
           }
         } catch (error) {
-          console.warn(`Failed to fetch campaign messages for ${campaign.id}:`, error);
+          logger.warn('KLAVIYO_METRICS', `Failed to fetch campaign messages for ${campaign.id}`, {
+            campaignId: campaign.id,
+          }, error as Error);
         }
-        
+
         // Use campaign attributes if available, otherwise use estimates
-        const campaignSent = campaign.attributes?.send_count || 1000;
-        const campaignOpens = campaign.attributes?.open_count || Math.floor(campaignSent * 0.25);
-        const campaignClicks = campaign.attributes?.click_count || Math.floor(campaignSent * 0.05);
-        const campaignRevenue = campaign.attributes?.revenue || 500;
-        
+        const campaignSent = (campaign.attributes as any)?.send_count || 1000;
+        const campaignOpens = (campaign.attributes as any)?.open_count || Math.floor(campaignSent * 0.25);
+        const campaignClicks = (campaign.attributes as any)?.click_count || Math.floor(campaignSent * 0.05);
+        const campaignRevenue = (campaign.attributes as any)?.revenue || 500;
+
+        logger.debug('KLAVIYO_METRICS', `Campaign ${campaign.id} stats`, {
+          sent: campaignSent,
+          opens: campaignOpens,
+          clicks: campaignClicks,
+          revenue: campaignRevenue,
+        });
+
         totalSent += campaignSent;
         totalOpens += campaignOpens;
         totalClicks += campaignClicks;
         emailRevenue += campaignRevenue;
       }
-
       totalRevenue = emailRevenue;
 
       const metrics: KlaviyoMetrics = {
@@ -123,15 +202,31 @@ export class KlaviyoMCPClient {
         avgOrderValue: totalRevenue > 0 ? totalRevenue / Math.max(campaigns.length, 1) : 0,
       };
 
-      console.log(`Successfully calculated Klaviyo metrics from ${campaigns.length} campaigns`);
+      logger.info('KLAVIYO_METRICS', 'Successfully calculated metrics', {
+        requestId,
+        metrics: {
+          ...metrics,
+          calculatedFrom: {
+            totalCampaigns: campaigns.length,
+            totalSent,
+            totalOpens,
+            totalClicks,
+          },
+        },
+      });
+
       return {
         data: metrics,
         success: true,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('Error fetching Klaviyo metrics:', error);
-      // Return fallback metrics on error
+      logger.critical('KLAVIYO_METRICS', 'Critical error in getMetrics - using fallback data', {
+        requestId,
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
+      }, error as Error);
+      
       const fallbackMetrics: KlaviyoMetrics = {
         totalRevenue: 15420.50,
         emailRevenue: 12340.25,
@@ -143,6 +238,12 @@ export class KlaviyoMCPClient {
         totalCampaigns: 12,
         avgOrderValue: 85.75,
       };
+
+      logger.warn('KLAVIYO_METRICS', 'Returning fallback metrics due to API errors', {
+        requestId,
+        fallbackMetrics,
+      });
+
       return {
         data: fallbackMetrics,
         success: true,

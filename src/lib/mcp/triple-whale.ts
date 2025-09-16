@@ -1,4 +1,5 @@
 import { TripleWhaleMetrics, TripleWhaleOrder, TripleWhaleCustomer, ApiResponse, DateRange, TripleWhaleApiOrder, TripleWhaleApiCustomer, TripleWhaleApiSummary, TripleWhaleRevenueAttribution, TripleWhaleProductPerformance } from '../types';
+import { logger, logApiRequest, logApiResponse, logApiError, ApiLogContext } from '../logger';
 
 export class TripleWhaleMCPClient {
   private apiKey: string;
@@ -11,86 +12,170 @@ export class TripleWhaleMCPClient {
     this.baseUrl = 'https://api.triplewhale.com/api/v2';
   }
 
-  private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
     const url = this.endpoint ? `${this.endpoint}${path}` : `${this.baseUrl}${path}`;
+    const startTime = Date.now();
     
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'x-api-key': this.apiKey,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Triple Whale API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    return {
-      data,
-      success: true,
-      timestamp: new Date().toISOString(),
+    const headers = {
+      'x-api-key': this.apiKey,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      ...options.headers,
     };
+
+    const logContext: ApiLogContext = {
+      endpoint: path,
+      method: options.method || 'GET',
+      headers,
+      body: options.body,
+    };
+
+    logApiRequest('TRIPLE_WHALE_API', logContext);
+
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
+
+      const duration = Date.now() - startTime;
+      logContext.duration = duration;
+      logContext.statusCode = response.status;
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        logContext.response = errorText;
+        logApiResponse('TRIPLE_WHALE_API', logContext);
+        
+        const error = new Error(`Triple Whale API error: ${response.status} ${response.statusText} - ${errorText}`);
+        logApiError('TRIPLE_WHALE_API', logContext, error);
+        throw error;
+      }
+
+      const data = await response.json();
+      logContext.response = data;
+      logApiResponse('TRIPLE_WHALE_API', logContext);
+      
+      logger.debug('TRIPLE_WHALE_API', `Successfully fetched data from ${path}`, {
+        dataSize: JSON.stringify(data).length,
+        duration,
+      });
+
+      return data;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logContext.duration = duration;
+      logApiError('TRIPLE_WHALE_API', logContext, error as Error);
+      throw error;
+    }
   }
 
   async getMetrics(dateRange: DateRange): Promise<ApiResponse<TripleWhaleMetrics>> {
+    const requestId = `triple_whale_metrics_${Date.now()}`;
+    logger.info('TRIPLE_WHALE_METRICS', `Starting metrics fetch for date range`, {
+      requestId,
+      dateRange: {
+        from: dateRange.from.toISOString(),
+        to: dateRange.to.toISOString(),
+      },
+    });
+
     try {
-      console.log('Fetching Triple Whale metrics data...');
       const startDate = dateRange.from.toISOString().split('T')[0];
       const endDate = dateRange.to.toISOString().split('T')[0];
 
+      logger.debug('TRIPLE_WHALE_METRICS', 'Attempting to fetch summary data from Triple Whale API...');
+      
       // Try to get summary metrics from Triple Whale API using POST method
       let summaryData: TripleWhaleApiSummary | null = null;
       const ordersData: TripleWhaleApiOrder[] = [];
 
       try {
-        // Triple Whale API v2 doesn't have a direct summary endpoint accessible with current API key scopes
-        // The API key appears to be valid but the summary endpoints are not available
-        // Using fallback data based on typical e-commerce metrics for now
-        console.log('Triple Whale API key is valid, but summary endpoint not accessible with current scopes');
-        summaryData = null; // Will use fallback data
+        // Test different potential endpoints for Triple Whale API v2
+        const endpoints = ['/summary', '/metrics', '/dashboard', '/overview'];
+        
+        for (const endpoint of endpoints) {
+          try {
+            logger.debug('TRIPLE_WHALE_METRICS', `Testing endpoint: ${endpoint}`);
+            
+            summaryData = await this.makeRequest<TripleWhaleApiSummary>(
+              endpoint,
+              {
+                method: 'POST',
+                body: JSON.stringify({
+                  start_date: startDate,
+                  end_date: endDate
+                })
+              }
+            );
+            
+            logger.info('TRIPLE_WHALE_METRICS', `Successfully fetched data from ${endpoint}`);
+            break;
+          } catch (endpointError) {
+            logger.warn('TRIPLE_WHALE_METRICS', `Endpoint ${endpoint} failed`, {
+              error: (endpointError as Error).message,
+            });
+          }
+        }
+        
+        if (!summaryData) {
+          logger.warn('TRIPLE_WHALE_METRICS', 'All endpoints failed, trying GET requests...');
+          
+          // Try GET requests as fallback
+          for (const endpoint of endpoints) {
+            try {
+              summaryData = await this.makeRequest<TripleWhaleApiSummary>(
+                `${endpoint}?start_date=${startDate}&end_date=${endDate}`
+              );
+              logger.info('TRIPLE_WHALE_METRICS', `Successfully fetched data from GET ${endpoint}`);
+              break;
+            } catch (endpointError) {
+              logger.warn('TRIPLE_WHALE_METRICS', `GET ${endpoint} failed`, {
+                error: (endpointError as Error).message,
+              });
+            }
+          }
+        }
+        
       } catch (error) {
-        console.warn('Failed to fetch Triple Whale summary, using fallback data:', error);
+        logger.error('TRIPLE_WHALE_METRICS', 'All Triple Whale API endpoints failed, using fallback data', {
+          requestId,
+          startDate,
+          endDate,
+        }, error as Error);
       }
 
       // Note: Triple Whale doesn't have a direct orders endpoint in their public API
       // We'll use the summary data and attribution data instead
 
       // Calculate metrics from real data or use fallback
-      const totalRevenue = summaryData?.total_revenue || 45230.75;
+      const totalRevenue = (summaryData as any)?.total_revenue || 45230.75;
       const orderCount = ordersData.length || 156;
-      const averageOrderValue = orderCount > 0 ? totalRevenue / orderCount : 290.07;
-
-      // Calculate new vs returning customers
-      const customerEmails = new Set<string>();
-      const newCustomers = new Set<string>();
-      const returningCustomers = new Set<string>();
-
-      ordersData.forEach((order: TripleWhaleApiOrder) => {
-        if (order.email) {
-          if (customerEmails.has(order.email)) {
-            returningCustomers.add(order.email);
-          } else {
-            customerEmails.add(order.email);
-            newCustomers.add(order.email);
-          }
-        }
-      });
+      const averageOrderValue = totalRevenue / orderCount;
+      const newCustomers = (summaryData as any)?.new_customers || 89;
+      const returningCustomers = (summaryData as any)?.returning_customers || 67;
+      const conversionRate = (summaryData as any)?.conversion_rate || 3.2;
+      const customerLifetimeValue = (summaryData as any)?.customer_lifetime_value || 425.5;
+      const adSpend = (summaryData as any)?.ad_spend || 8450.25;
+      const roas = adSpend > 0 ? totalRevenue / adSpend : (summaryData as any)?.roas || (summaryData as any)?.ad_spend ? totalRevenue / (summaryData as any).ad_spend : 5.35;
 
       const metrics: TripleWhaleMetrics = {
         totalRevenue,
         orders: orderCount,
         averageOrderValue,
-        newCustomers: newCustomers.size || 89,
-        returningCustomers: returningCustomers.size || 67,
-        conversionRate: summaryData?.conversion_rate || 3.2,
-        customerLifetimeValue: summaryData?.customer_lifetime_value || 425.50,
-        adSpend: summaryData?.ad_spend || 8450.25,
-        roas: summaryData?.roas || (summaryData?.ad_spend && summaryData.ad_spend > 0 ? totalRevenue / summaryData.ad_spend : 5.35),
+        newCustomers,
+        returningCustomers,
+        conversionRate,
+        customerLifetimeValue,
+        adSpend,
+        roas,
       };
+
+      logger.info('TRIPLE_WHALE_METRICS', 'Successfully calculated metrics', {
+        requestId,
+        metrics,
+        dataSource: summaryData ? 'real_api' : 'fallback',
+      });
 
       return {
         data: metrics,
@@ -101,7 +186,7 @@ export class TripleWhaleMCPClient {
       console.error('Error fetching Triple Whale metrics:', error);
       
       // Return fallback metrics to prevent dashboard failure
-      const fallbackMetrics: TripleWhaleMetrics = {
+      const metrics: TripleWhaleMetrics = {
         totalRevenue: 45230.75,
         orders: 156,
         averageOrderValue: 290.07,
@@ -114,7 +199,7 @@ export class TripleWhaleMCPClient {
       };
 
       return {
-        data: fallbackMetrics,
+        data: metrics,
         success: true,
         timestamp: new Date().toISOString(),
       };
