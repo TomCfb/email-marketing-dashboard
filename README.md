@@ -304,7 +304,27 @@ MIT License - see LICENSE file for details.
 
 ### 🔧 Recent Updates
 
-### TypeScript Lint Error Resolution (Latest - v2.3.1)
+### Campaigns and Flows Pages (Latest - v2.4.0)
+- **New Main Pages**: Created comprehensive Campaigns and Flows pages with modern, beautiful UI
+  - `/campaigns` page with campaign list, metrics overview, and performance tracking
+  - `/flows` page with automation insights, flow management, and performance analytics
+  - Gradient backgrounds and professional design following modern UX practices
+- **Advanced Functionality**: Implemented search, filtering, and sorting capabilities
+  - Real-time search across campaign and flow names
+  - Status-based filtering (active, paused, draft, sent, cancelled)
+  - Multiple sorting options (date, revenue, conversion rate, subscribers)
+- **Comprehensive Metrics**: Detailed performance dashboards with key insights
+  - Campaign metrics: total revenue, open rates, click rates, conversion rates
+  - Flow metrics: automation performance, subscriber counts, revenue per user
+  - Visual indicators and trend analysis with color-coded status badges
+- **Navigation Integration**: Updated sidebar navigation with new page links
+  - Added Campaigns and Flows to main navigation menu
+  - Proper routing and active state management
+- **Data Integration**: Connected to existing Klaviyo API endpoints with fallback data
+  - Real-time data fetching from `/api/klaviyo/campaigns` and `/api/klaviyo/flows`
+  - Robust error handling and fallback mechanisms for offline scenarios
+
+### TypeScript Lint Error Resolution (v2.3.1)
 - **TypeScript Error Fixes**: Resolved all TypeScript lint errors in the Klaviyo MCP client and related API routes
   - Fixed headers type errors by explicitly typing as `Record<string, string>`
   - Removed unused variables and parameters from method signatures
