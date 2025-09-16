@@ -1,4 +1,4 @@
-import { TripleWhaleMetrics, TripleWhaleOrder, TripleWhaleCustomer, ApiResponse, DateRange, TripleWhaleApiOrder, TripleWhaleApiCustomer, TripleWhaleApiSummary } from '../types';
+import { TripleWhaleMetrics, TripleWhaleOrder, TripleWhaleCustomer, ApiResponse, DateRange, TripleWhaleApiOrder, TripleWhaleApiCustomer, TripleWhaleApiSummary, TripleWhaleRevenueAttribution, TripleWhaleProductPerformance } from '../types';
 
 export class TripleWhaleMCPClient {
   private apiKey: string;
@@ -144,7 +144,7 @@ export class TripleWhaleMCPClient {
         currency: order.currency || 'USD',
         createdAt: order.created_at || new Date().toISOString(),
         status: (order.financial_status as 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled') || 'pending',
-        items: (order.line_items || []).map((item: any) => ({
+        items: (order.line_items || []).map((item: {id?: string; product_id?: string; name?: string; quantity?: number; price?: number; total?: number}) => ({
           id: item.id || '',
           productId: item.product_id || '',
           name: item.name || '',
@@ -266,32 +266,40 @@ export class TripleWhaleMCPClient {
     }
   }
 
-  async getRevenueAttribution(dateRange: DateRange): Promise<ApiResponse<any>> {
+  async getRevenueAttribution(dateRange: DateRange): Promise<ApiResponse<TripleWhaleRevenueAttribution[]>> {
     try {
       const startDate = dateRange.from.toISOString().split('T')[0];
       const endDate = dateRange.to.toISOString().split('T')[0];
 
-      const response = await this.makeRequest<any>(
+      const response = await this.makeRequest<{data: TripleWhaleRevenueAttribution[]}>(
         `/analytics/attribution?start_date=${startDate}&end_date=${endDate}&group_by=source`
       );
 
-      return response;
+      return {
+        data: response.data.data,
+        success: response.success,
+        timestamp: response.timestamp,
+      };
     } catch (error) {
       console.error('Error fetching Triple Whale attribution:', error);
       throw error;
     }
   }
 
-  async getCohortAnalysis(dateRange: DateRange): Promise<ApiResponse<any>> {
+  async getCohortAnalysis(dateRange: DateRange): Promise<ApiResponse<{cohorts: {month: string; customers: number; retention: number[]}[]}>> {
     try {
       const startDate = dateRange.from.toISOString().split('T')[0];
       const endDate = dateRange.to.toISOString().split('T')[0];
 
-      const response = await this.makeRequest<any>(
+      const response = await this.makeRequest<{data: {cohorts: {month: string; customers: number; retention: number[]}[]}}>(
         `/analytics/cohorts?start_date=${startDate}&end_date=${endDate}`
       );
 
-      return response;
+      return {
+        data: response.data.data,
+        success: response.success,
+        timestamp: response.timestamp,
+      };
     } catch (error) {
       console.error('Error fetching Triple Whale cohort analysis:', error);
       throw error;
@@ -308,16 +316,20 @@ export class TripleWhaleMCPClient {
     }
   }
 
-  async getProductPerformance(dateRange: DateRange): Promise<ApiResponse<any[]>> {
+  async getProductPerformance(dateRange: DateRange): Promise<ApiResponse<TripleWhaleProductPerformance[]>> {
     try {
       const startDate = dateRange.from.toISOString().split('T')[0];
       const endDate = dateRange.to.toISOString().split('T')[0];
 
-      const response = await this.makeRequest<any>(
+      const response = await this.makeRequest<{data: TripleWhaleProductPerformance[]}>(
         `/analytics/products?start_date=${startDate}&end_date=${endDate}&sort_by=revenue&order=desc`
       );
 
-      return response;
+      return {
+        data: response.data.data,
+        success: response.success,
+        timestamp: response.timestamp,
+      };
     } catch (error) {
       console.error('Error fetching Triple Whale product performance:', error);
       throw error;

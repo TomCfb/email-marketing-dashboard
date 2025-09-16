@@ -408,6 +408,27 @@ export interface CohortAnalysis {
   averageOrderValue: number[];
 }
 
+// Triple Whale Analytics Types
+export interface TripleWhaleRevenueAttribution {
+  source: string;
+  revenue: number;
+  orders: number;
+  customers: number;
+  attributionType: 'direct' | 'assisted' | 'view-through';
+  percentage: number;
+}
+
+export interface TripleWhaleProductPerformance {
+  id: string;
+  name: string;
+  sku: string;
+  revenue: number;
+  orders: number;
+  quantity: number;
+  averageOrderValue: number;
+  conversionRate: number;
+}
+
 // Chart Data Types
 export interface ChartDataPoint {
   date: string;
