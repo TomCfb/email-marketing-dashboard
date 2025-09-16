@@ -13,7 +13,8 @@ import {
   Users, 
   Menu,
   Settings,
-  RefreshCw
+  RefreshCw,
+  Workflow
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,6 +26,8 @@ export function Sidebar({ className }: SidebarProps) {
 
   const navigation = [
     { name: 'Overview', href: '/dashboard/overview', icon: BarChart3, current: pathname === '/dashboard/overview' },
+    { name: 'Campaigns', href: '/campaigns', icon: Mail, current: pathname === '/campaigns' },
+    { name: 'Flows', href: '/flows', icon: Workflow, current: pathname === '/flows' },
     { name: 'Email Performance', href: '/dashboard/email-performance', icon: Mail, current: pathname === '/dashboard/email-performance' },
     { name: 'Revenue Analytics', href: '/dashboard/revenue', icon: DollarSign, current: pathname === '/dashboard/revenue' },
     { name: 'Customer Insights', href: '/dashboard/customers', icon: Users, current: pathname === '/dashboard/customers' },
