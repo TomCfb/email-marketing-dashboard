@@ -7,8 +7,8 @@ export class TripleWhaleMCPClient {
 
   constructor(apiKey: string, endpoint?: string) {
     this.apiKey = apiKey;
-    this.endpoint = endpoint || process.env.TRIPLE_WHALE_MCP_ENDPOINT || 'http://localhost:3002/triple-whale';
-    this.baseUrl = 'https://api.triplewhale.com/api/v2';
+    this.endpoint = endpoint || process.env.TRIPLE_WHALE_MCP_ENDPOINT || '';
+    this.baseUrl = 'https://developers.triplewhale.com/api';
   }
 
   private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
@@ -42,28 +42,28 @@ export class TripleWhaleMCPClient {
       const startDate = dateRange.from.toISOString().split('T')[0];
       const endDate = dateRange.to.toISOString().split('T')[0];
 
-      // Try to get summary metrics from Triple Whale API
+      // Try to get summary metrics from Triple Whale API using POST method
       let summaryData: TripleWhaleApiSummary | null = null;
-      let ordersData: TripleWhaleApiOrder[] = [];
+      const ordersData: TripleWhaleApiOrder[] = [];
 
       try {
         const summaryResponse = await this.makeRequest<TripleWhaleApiSummary>(
-          `/summary?start_date=${startDate}&end_date=${endDate}`
+          `/summary-page`,
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              start_date: startDate,
+              end_date: endDate
+            })
+          }
         );
         summaryData = summaryResponse.data;
       } catch (error) {
         console.warn('Failed to fetch Triple Whale summary, using fallback data:', error);
       }
 
-      // Try to get orders data for additional calculations
-      try {
-        const ordersResponse = await this.makeRequest<{data: TripleWhaleApiOrder[]}>(
-          `/orders?start_date=${startDate}&end_date=${endDate}&limit=1000`
-        );
-        ordersData = ordersResponse.data?.data || [];
-      } catch (error) {
-        console.warn('Failed to fetch Triple Whale orders, using fallback data:', error);
-      }
+      // Note: Triple Whale doesn't have a direct orders endpoint in their public API
+      // We'll use the summary data and attribution data instead
 
       // Calculate metrics from real data or use fallback
       const totalRevenue = summaryData?.total_revenue || 45230.75;
@@ -308,7 +308,13 @@ export class TripleWhaleMCPClient {
 
   async testConnection(): Promise<boolean> {
     try {
-      await this.makeRequest('/summary');
+      await this.makeRequest('/summary-page', {
+        method: 'POST',
+        body: JSON.stringify({
+          start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          end_date: new Date().toISOString().split('T')[0]
+        })
+      });
       return true;
     } catch (error) {
       console.error('Triple Whale connection test failed:', error);
