@@ -3,8 +3,8 @@ import { KlaviyoMCPClient } from '@/lib/mcp/klaviyo';
 
 export async function GET() {
   try {
-    // Get API key from environment or use default
-    const apiKey = process.env.KLAVIYO_API_KEY || 'pk_e144c1c656ee0812ec48376bc1391f2033';
+    // Get API key from environment
+    const apiKey = process.env.KLAVIYO_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Klaviyo API key not configured' },
@@ -12,16 +12,22 @@ export async function GET() {
       );
     }
 
+    console.log('Klaviyo API: Attempting to fetch campaigns...');
     const client = new KlaviyoMCPClient(apiKey);
     const campaigns = await client.getCampaigns();
 
+    console.log('Klaviyo API: Successfully fetched campaigns:', campaigns.data?.length);
     return NextResponse.json(campaigns);
   } catch (error) {
-    console.error('Error fetching Klaviyo campaigns:', error);
+    console.error('Klaviyo API: Error fetching campaigns:', error);
 
     return NextResponse.json(
-      { error: 'Failed to fetch Klaviyo campaigns' },
-      { status: 500 }
+      { 
+        error: 'Failed to fetch real Klaviyo campaigns',
+        message: 'Check API key permissions and scopes',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 503 }
     );
   }
 }
