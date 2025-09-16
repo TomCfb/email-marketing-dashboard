@@ -24,6 +24,7 @@ import {
   ArrowDownRight
 } from 'lucide-react';
 import { KlaviyoCampaign, ApiResponse } from '@/lib/types';
+import { CampaignDetailModal } from '@/components/campaigns/campaign-detail-modal';
 
 interface CampaignMetrics {
   totalCampaigns: number;
@@ -42,6 +43,8 @@ export default function CampaignsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('sentAt');
+  const [selectedCampaign, setSelectedCampaign] = useState<KlaviyoCampaign | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     fetchCampaigns();
@@ -130,6 +133,16 @@ export default function CampaignsPage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const handleCampaignClick = (campaign: KlaviyoCampaign) => {
+    setSelectedCampaign(campaign);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCampaign(null);
   };
 
   if (loading) {
@@ -277,6 +290,7 @@ export default function CampaignsPage() {
                   <div
                     key={campaign.id}
                     className="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                    onClick={() => handleCampaignClick(campaign)}
                   >
                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                       <div className="flex-1 space-y-2">
@@ -328,6 +342,13 @@ export default function CampaignsPage() {
             </ScrollArea>
           </CardContent>
         </Card>
+
+        {/* Campaign Detail Modal */}
+        <CampaignDetailModal
+          campaign={selectedCampaign}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+        />
       </div>
     </div>
   );
