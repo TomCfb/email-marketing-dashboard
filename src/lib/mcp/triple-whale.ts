@@ -10,6 +10,10 @@ export class TripleWhaleMCPClient {
     this.apiKey = apiKey;
     this.endpoint = endpoint || process.env.TRIPLE_WHALE_MCP_ENDPOINT || '';
     this.baseUrl = 'https://api.triplewhale.com/api/v2';
+    
+    if (!this.apiKey) {
+      throw new Error('Triple Whale API key is required');
+    }
   }
 
   private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -94,7 +98,7 @@ export class TripleWhaleMCPClient {
         // Test documented Triple Whale API endpoints based on official documentation
         const endpointsToTest = [
           { path: '/summary-page', method: 'POST', description: 'Official summary endpoint' },
-          { path: '/tw-metrics/metrics-data', method: 'GET', description: 'Custom metrics data' },
+          { path: '/users/api-keys/me', method: 'GET', description: 'API key validation endpoint' },
           { path: '/attribution/get-orders-with-journeys-v2', method: 'POST', description: 'Attribution data' }
         ];
         
