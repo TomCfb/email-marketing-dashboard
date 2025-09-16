@@ -183,25 +183,8 @@ export class TripleWhaleMCPStdioClient {
 
     } catch (error) {
       logger.error('TRIPLE_WHALE_MCP', 'Failed to fetch metrics via MCP', { requestId }, error as Error);
-      
-      // Return fallback metrics
-      const fallbackMetrics: TripleWhaleMetrics = {
-        totalRevenue: 45230.75,
-        orders: 156,
-        averageOrderValue: 290.07,
-        newCustomers: 89,
-        returningCustomers: 67,
-        conversionRate: 3.2,
-        customerLifetimeValue: 425.50,
-        adSpend: 8450.25,
-        roas: 5.35,
-      };
-
-      return {
-        data: fallbackMetrics,
-        success: true,
-        timestamp: new Date().toISOString(),
-      };
+      logger.error('TRIPLE_WHALE_MCP', 'Could not extract real metrics from MCP response, forcing real API call');
+      throw new Error('MCP failed to provide real metrics data');
     }
   }
 

@@ -49,24 +49,16 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fallback: Return realistic business data based on your actual shop
-    const fallbackMetrics = {
-      totalRevenue: 127450.30,
-      orders: 342,
-      averageOrderValue: 372.81,
-      newCustomers: 198,
-      returningCustomers: 144,
-      conversionRate: 4.1,
-      customerLifetimeValue: 892.15,
-      adSpend: 18750.40,
-      roas: 6.8,
-    };
-
-    return NextResponse.json({
-      data: fallbackMetrics,
-      success: true,
-      timestamp: new Date().toISOString(),
-    });
+    // NO FALLBACK DATA - Force real data only
+    console.error('Failed to fetch real Triple Whale data - no fallback provided');
+    return NextResponse.json(
+      { 
+        error: 'Failed to fetch real Triple Whale data',
+        message: 'MCP stdio client failed and no fallback data available',
+        details: 'Check MCP server initialization and API key permissions'
+      },
+      { status: 503 }
+    );
   } catch (error) {
     console.error('Error fetching Triple Whale metrics:', error);
     
