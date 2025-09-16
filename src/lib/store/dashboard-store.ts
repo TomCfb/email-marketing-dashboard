@@ -72,6 +72,15 @@ export const useDashboardStore = create<DashboardStore>()(
         selectedMetrics: state.selectedMetrics,
         activeFilters: state.activeFilters,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state?.dateRange) {
+          // Convert string dates back to Date objects after rehydration
+          state.dateRange = {
+            from: new Date(state.dateRange.from),
+            to: new Date(state.dateRange.to),
+          };
+        }
+      },
     }
   )
 );
