@@ -12,7 +12,7 @@ export class KlaviyoMCPClient {
     this.baseUrl = 'https://a.klaviyo.com/api';
   }
 
-  private async makeRequest<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  private async makeRequest<T>(path: string, method: string = 'GET', body?: Record<string, unknown>): Promise<ApiResponse<T>> {
     const url = `${this.baseUrl}${path}`;
     const startTime = Date.now();
     
@@ -20,23 +20,23 @@ export class KlaviyoMCPClient {
       'Authorization': `Klaviyo-API-Key ${this.apiKey}`,
       'Accept': 'application/json',
       'Content-Type': 'application/json',
-      'revision': '2023-12-15',
-      ...(options.headers as Record<string, string> || {}),
+      'revision': '2024-10-15',
     };
 
     const logContext: ApiLogContext = {
       endpoint: path,
-      method: options.method || 'GET',
+      method: method,
       headers: headers as Record<string, string>,
-      body: options.body,
+      body: body,
     };
 
     logApiRequest('KLAVIYO_API', logContext);
 
     try {
       const response = await fetch(url, {
-        ...options,
+        method,
         headers,
+        ...(body && { body: JSON.stringify(body) }),
       });
 
       const duration = Date.now() - startTime;
@@ -210,20 +210,74 @@ export class KlaviyoMCPClient {
       
       const response = await this.makeRequest<{data: KlaviyoCampaignApiResponse[]}>('/campaigns?filter=equals(messages.channel,\'email\')&sort=-created_at');
       
-      const campaigns: KlaviyoCampaign[] = response.data?.data?.map((campaign: KlaviyoCampaignApiResponse) => ({
-        id: campaign.id,
-        name: campaign.attributes?.name || 'Untitled Campaign',
-        subject: campaign.attributes?.subject_line || 'No Subject',
-        status: (campaign.attributes?.status as 'draft' | 'sent' | 'scheduled' | 'cancelled') || 'draft',
-        sentAt: campaign.attributes?.send_time || new Date().toISOString(),
-        recipients: campaign.attributes?.audiences?.included?.length || 0,
-        opens: 0, // Would need separate API call for statistics
-        clicks: 0,
-        revenue: 0,
-        openRate: 0,
-        clickRate: 0,
-        conversionRate: 0,
-      })) || [];
+      // Fetch campaign statistics for each campaign
+      const campaigns = await Promise.all(
+        response.data?.data?.map(async (campaign: KlaviyoCampaignApiResponse) => {
+          const stats = {
+            opens: 0,
+            clicks: 0,
+            revenue: 0,
+            recipients: 0,
+            openRate: 0,
+            clickRate: 0,
+            conversionRate: 0,
+          };
+
+          // Only fetch stats for sent campaigns
+          if (campaign.attributes?.status === 'sent') {
+            try {
+              // Use Klaviyo Reporting API for campaign statistics
+              const reportPayload = {
+                data: {
+                  type: 'campaign-values-report',
+                  attributes: {
+                    timeframe: { key: 'last_12_months' },
+                    filter: `equals(campaign_id,"${campaign.id}")`,
+                    statistics: ['opens', 'open_rate', 'clicks', 'click_rate', 'recipients']
+                  }
+                }
+              };
+
+              const statsResponse = await this.makeRequest<{data: {attributes: {results: Array<{statistics: Record<string, number>}>}}}>(
+                '/campaign-values-reports/', 
+                'POST',
+                reportPayload
+              );
+              
+              const campaignStats = statsResponse.data?.data?.attributes?.results?.[0]?.statistics;
+              
+              if (campaignStats) {
+                stats.recipients = campaignStats.recipients || 0;
+                stats.opens = campaignStats.opens || 0;
+                stats.clicks = campaignStats.clicks || 0;
+                stats.openRate = (campaignStats.open_rate || 0) * 100;
+                stats.clickRate = (campaignStats.click_rate || 0) * 100;
+                stats.revenue = campaignStats.revenue || 0;
+                stats.conversionRate = stats.clicks > 0 ? (stats.revenue / stats.clicks) * 0.1 : 0;
+              }
+            } catch (statsError) {
+              logger.warn('KLAVIYO_CAMPAIGNS', `Failed to fetch stats for campaign ${campaign.id}`, {
+                error: (statsError as Error).message
+              });
+            }
+          }
+
+          return {
+            id: campaign.id,
+            name: campaign.attributes?.name || 'Untitled Campaign',
+            subject: campaign.attributes?.subject_line || 'No Subject',
+            status: (campaign.attributes?.status as 'draft' | 'sent' | 'scheduled' | 'cancelled') || 'draft',
+            sentAt: campaign.attributes?.send_time || new Date().toISOString(),
+            recipients: stats.recipients,
+            opens: stats.opens,
+            clicks: stats.clicks,
+            revenue: stats.revenue,
+            openRate: stats.openRate,
+            clickRate: stats.clickRate,
+            conversionRate: stats.conversionRate,
+          };
+        }) || []
+      );
 
       logger.info('KLAVIYO_CAMPAIGNS', `Successfully fetched ${campaigns.length} real Klaviyo campaigns`);
       

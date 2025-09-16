@@ -99,6 +99,11 @@ const tests = [
     description: 'Gets available metrics'
   },
   {
+    name: 'Campaign Statistics',
+    endpoint: '/campaign-recipient-estimations/',
+    description: 'Gets campaign performance statistics'
+  },
+  {
     name: 'Profiles',
     endpoint: '/profiles/',
     description: 'Gets customer profiles'
