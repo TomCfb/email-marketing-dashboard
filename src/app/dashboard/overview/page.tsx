@@ -1,17 +1,21 @@
 "use client";
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { ComparisonChart } from '@/components/charts/comparison-chart';
 import { DataTable } from '@/components/shared/data-table';
+import { CampaignDetailModal } from '@/components/campaigns/campaign-detail-modal';
 import { useDateRange } from '@/lib/store/dashboard-store';
-import { QueryKeys } from '@/lib/types';
+import { QueryKeys, KlaviyoCampaign } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 export default function OverviewPage() {
   const dateRange = useDateRange();
+  const [selectedCampaign, setSelectedCampaign] = useState<KlaviyoCampaign | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Fetch Klaviyo metrics
   const { 
@@ -71,6 +75,16 @@ export default function OverviewPage() {
   
   // Only show error if both APIs fail
   const hasCriticalError = klaviyoError && tripleWhaleError;
+
+  const handleCampaignClick = (campaign: KlaviyoCampaign) => {
+    setSelectedCampaign(campaign);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedCampaign(null);
+  };
 
   if (hasCriticalError) {
     return (
@@ -206,7 +220,7 @@ export default function OverviewPage() {
           <Skeleton className="h-[400px] w-full" />
         ) : (
           <DataTable
-            data={campaigns || []}
+            data={(campaigns || []).filter((c: KlaviyoCampaign) => c.status === 'sent')}
             columns={[
               {
                 key: 'name',
@@ -244,9 +258,17 @@ export default function OverviewPage() {
                 render: (value: number) => `$${value.toFixed(2)}`,
               },
             ]}
+            onRowClick={handleCampaignClick}
           />
         )}
       </div>
+
+      {/* Campaign Detail Modal */}
+      <CampaignDetailModal
+        campaign={selectedCampaign}
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }

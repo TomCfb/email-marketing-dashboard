@@ -239,6 +239,88 @@ export class KlaviyoMCPClient {
     }
   }
 
+  /**
+   * Fetch real campaign statistics for a specific campaign using Klaviyo Reporting API.
+   * No fallbacks. Errors are thrown if the API call fails or returns no results.
+   */
+  async getCampaignStats(campaignId: string, timeframeKey?: 'last_12_months' | 'last_24_months' | 'all_time'): Promise<ApiResponse<{
+    recipients: number;
+    opens: number;
+    openRate: number; // percent
+    clicks: number;
+    clickRate: number; // percent
+    revenue: number; // not provided by this report; returned as 0 here
+  }>> {
+    try {
+      // Fetch conversion metric id required by campaign-values-report
+      // Prefer the standard "Placed Order" metric
+      const metricsRes = await this.makeRequest<{ data: Array<{ id: string; attributes: { name?: string } }> }>(
+        "/metrics"
+      );
+      const metrics = metricsRes.data?.data || [];
+      let conversionMetricId = metrics.find(m => m.attributes?.name === 'Placed Order')?.id;
+      if (!conversionMetricId) {
+        conversionMetricId = metrics.find(m => (m.attributes?.name || '').toLowerCase().includes('placed'))?.id
+          || metrics.find(m => (m.attributes?.name || '').toLowerCase().includes('order'))?.id;
+      }
+      if (!conversionMetricId) {
+        throw new Error('Required conversion metric (Placed Order) not found');
+      }
+
+      const tryTimeframes = timeframeKey ? [timeframeKey] : ['last_12_months', 'last_24_months', 'all_time'] as const;
+      let statistics: Record<string, number> | undefined;
+      for (const tf of tryTimeframes) {
+        const payload = {
+          data: {
+            type: 'campaign-values-report',
+            attributes: {
+              timeframe: { key: tf },
+              filter: `equals(campaign_id,"${campaignId}")`,
+              conversion_metric_id: conversionMetricId,
+              statistics: ['recipients', 'opens', 'open_rate', 'clicks', 'click_rate']
+            }
+          }
+        };
+        const statsResponse = await this.makeRequest<{
+          data: { attributes: { results: Array<{ statistics: Record<string, number> }> } }
+        }>(
+          '/campaign-values-reports/',
+          'POST',
+          payload
+        );
+        statistics = statsResponse.data?.data?.attributes?.results?.[0]?.statistics;
+        if (!timeframeKey) {
+          if (statistics && (statistics.opens || statistics.clicks || statistics.recipients)) {
+            break;
+          }
+        } else {
+          // if a specific timeframe was requested, don't loop further
+          break;
+        }
+      }
+      if (!statistics) {
+        throw new Error('No statistics returned for campaign');
+      }
+
+      const result = {
+        recipients: statistics.recipients || 0,
+        opens: statistics.opens || 0,
+        openRate: ((statistics.open_rate || 0) * 100),
+        clicks: statistics.clicks || 0,
+        clickRate: ((statistics.click_rate || 0) * 100),
+        revenue: 0,
+      };
+
+      return {
+        data: result,
+        success: true,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      throw new Error(`Failed to fetch real Klaviyo campaign stats for ${campaignId}: ${(error as Error).message}`);
+    }
+  }
+
   async getCampaigns(): Promise<ApiResponse<KlaviyoCampaign[]>> {
     try {
       console.log('Fetching real Klaviyo campaigns data...');
@@ -262,12 +344,26 @@ export class KlaviyoMCPClient {
           if (campaign.attributes?.status === 'sent') {
             try {
               // Use Klaviyo Reporting API for campaign statistics
+              // conversion metric id required by reporting API
+              const metricsRes = await this.makeRequest<{ data: Array<{ id: string; attributes: { name?: string } }> }>(
+                '/metrics'
+              );
+              const metrics = metricsRes.data?.data || [];
+              const conversionMetricId = metrics.find(m => m.attributes?.name === 'Placed Order')?.id
+                || metrics.find(m => (m.attributes?.name || '').toLowerCase().includes('placed'))?.id
+                || metrics.find(m => (m.attributes?.name || '').toLowerCase().includes('order'))?.id;
+
+              if (!conversionMetricId) {
+                throw new Error('Required conversion metric (Placed Order) not found');
+              }
+
               const reportPayload = {
                 data: {
                   type: 'campaign-values-report',
                   attributes: {
                     timeframe: { key: 'last_12_months' },
                     filter: `equals(campaign_id,"${campaign.id}")`,
+                    conversion_metric_id: conversionMetricId,
                     statistics: ['opens', 'open_rate', 'clicks', 'click_rate', 'recipients']
                   }
                 }
@@ -287,8 +383,9 @@ export class KlaviyoMCPClient {
                 stats.clicks = campaignStats.clicks || 0;
                 stats.openRate = (campaignStats.open_rate || 0) * 100;
                 stats.clickRate = (campaignStats.click_rate || 0) * 100;
-                stats.revenue = campaignStats.revenue || 0;
-                stats.conversionRate = stats.clicks > 0 ? (stats.revenue / stats.clicks) * 0.1 : 0;
+                // Revenue not provided by this report; set to 0 (no placeholder calculations)
+                stats.revenue = 0;
+                stats.conversionRate = 0;
               }
             } catch (statsError) {
               logger.warn('KLAVIYO_CAMPAIGNS', `Failed to fetch stats for campaign ${campaign.id}`, {

@@ -20,7 +20,8 @@ export function DataTable<T extends Record<string, any>>({
   columns, 
   loading = false,
   pagination,
-  sorting 
+  sorting,
+  onRowClick
 }: DataTableProps<T>) {
   const [searchTerm, setSearchTerm] = useState('');
   const [localSorting, setLocalSorting] = useState<{
@@ -155,7 +156,11 @@ export function DataTable<T extends Record<string, any>>({
                 </TableRow>
               ) : (
                 sortedData.map((row, index) => (
-                  <TableRow key={index}>
+                  <TableRow 
+                    key={index}
+                    className={onRowClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}
+                    onClick={() => onRowClick?.(row)}
+                  >
                     {columns.map((column) => (
                       <TableCell key={String(column.key)}>
                         {column.render 

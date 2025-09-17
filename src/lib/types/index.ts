@@ -513,6 +513,7 @@ export interface DataTableProps<T> {
     direction: 'asc' | 'desc';
     onSort: (column: keyof T, direction: 'asc' | 'desc') => void;
   };
+  onRowClick?: (row: T) => void;
 }
 
 // Store Types (Zustand)

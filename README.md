@@ -1,3 +1,40 @@
+## Klaviyo Reporting API & Campaign Detail
+
+This project integrates Klaviyo's Reporting API to show real campaign analytics without any placeholder data.
+
+- Backend endpoint: `GET /api/klaviyo/campaigns/[id]/stats`
+  - File: `src/app/api/klaviyo/campaigns/[id]/stats/route.ts`
+  - Query params:
+    - `timeframe`: one of `last_12_months | last_24_months | all_time` (optional). If omitted, the server will try multiple timeframes until it finds data.
+  - Returns: recipients, opens, openRate (%), clicks, clickRate (%). Revenue is not part of this report and is therefore `0` (no fallbacks or faked values).
+
+Example:
+
+```bash
+curl "http://localhost:3000/api/klaviyo/campaigns/REPLACE_ID/stats?timeframe=last_12_months"
+```
+
+- Frontend modal: `CampaignDetailModal`
+  - File: `src/components/campaigns/campaign-detail-modal.tsx`
+  - Opens when you click a campaign row in the table on `Dashboard → Overview`.
+  - Fetches stats from the endpoint above and shows loading skeletons, an empty-state if no data, and a timeframe selector to refetch.
+  - Progress bars use Tailwind width classes (no inline style widths) for clean styling and linting.
+
+- Campaign list (Overview table)
+  - File: `src/app/dashboard/overview/page.tsx`
+  - Shows only `status === "sent"` campaigns to maximize Reporting API coverage.
+  - Clicking a row opens the modal described above.
+
+### Requirements
+
+- Set `KLAVIYO_API_KEY` in `.env.local` with sufficient scopes to access Reporting API and Metrics endpoints.
+- The Reporting API requires a `conversion_metric_id`. We automatically resolve this by fetching `/metrics` and selecting the standard "Placed Order" metric (or a close match).
+
+### Notes
+
+- We removed unsupported Reporting API statistics (e.g., `revenue`) to avoid 400 errors.
+- No fallback or synthetic data is used anywhere for campaign stats. If the API returns nothing, the UI clearly states there are no stats for the selected timeframe.
+
 # 📊 Email Marketing Analytics Dashboard
 
 ## 🎯 Overview
