@@ -8,7 +8,8 @@ import {
   Eye, 
   MousePointer, 
   Calendar,
-  CheckCircle
+  CheckCircle,
+  Info
 } from 'lucide-react';
 import { KlaviyoCampaign } from '@/lib/types';
 
@@ -179,6 +180,15 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
                   </select>
                   <button
                     type="button"
+                    className="p-1 rounded hover:bg-muted"
+                    aria-label="What does timeframe do?"
+                    title="Stats are fetched from Klaviyo's Reporting API for the selected timeframe. The report requires a conversion metric (Placed Order). If no data exists for the window, you'll see an empty state. Use the selector to try a broader timeframe."
+                  >
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                    <span className="sr-only">Timeframe help</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleCopyUrl}
                     className="border rounded-md text-xs px-2 py-1 hover:bg-muted"
                     aria-label="Copy API URL"
@@ -224,6 +234,7 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
                     aria-valuenow={Math.round(stats.openRate ?? campaign.openRate)}
                     aria-valuemin={0}
                     aria-valuemax={100}
+                    aria-valuetext={`${(stats.openRate ?? campaign.openRate).toFixed(1)}%`}
                     aria-label="Open rate"
                   >
                     <div
@@ -241,6 +252,7 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
                     aria-valuenow={Math.round(stats.clickRate ?? campaign.clickRate)}
                     aria-valuemin={0}
                     aria-valuemax={100}
+                    aria-valuetext={`${(stats.clickRate ?? campaign.clickRate).toFixed(1)}%`}
                     aria-label="Click rate"
                   >
                     <div
