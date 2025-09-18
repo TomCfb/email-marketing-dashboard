@@ -218,15 +218,35 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
                     <span className="text-sm text-gray-600">Open Rate</span>
                     <span className="font-semibold">{(stats.openRate ?? campaign.openRate).toFixed(1)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className={`bg-orange-500 h-2 rounded-full transition-all duration-300 ${widthClass(stats.openRate ?? campaign.openRate)}`} />
+                  <div
+                    className="w-full bg-gray-200/70 rounded-full h-2"
+                    role="progressbar"
+                    aria-valuenow={Math.round(stats.openRate ?? campaign.openRate)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Open rate"
+                  >
+                    <div
+                      className={`h-2 rounded-full transition-[width] duration-500 ease-out ${widthClass(stats.openRate ?? campaign.openRate)} bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 shadow-[inset_0_0_2px_rgba(0,0,0,0.2)]`}
+                    />
+                    <span className="sr-only">{(stats.openRate ?? campaign.openRate).toFixed(1)} percent open rate</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Click Rate</span>
                     <span className="font-semibold">{(stats.clickRate ?? campaign.clickRate).toFixed(1)}%</span>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className={`bg-purple-500 h-2 rounded-full transition-all duration-300 ${widthClass(stats.clickRate ?? campaign.clickRate)}`} />
+                  <div
+                    className="w-full bg-gray-200/70 rounded-full h-2"
+                    role="progressbar"
+                    aria-valuenow={Math.round(stats.clickRate ?? campaign.clickRate)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label="Click rate"
+                  >
+                    <div
+                      className={`h-2 rounded-full transition-[width] duration-500 ease-out ${widthClass(stats.clickRate ?? campaign.clickRate)} bg-gradient-to-r from-purple-400 via-purple-500 to-purple-600 shadow-[inset_0_0_2px_rgba(0,0,0,0.2)]`}
+                    />
+                    <span className="sr-only">{(stats.clickRate ?? campaign.clickRate).toFixed(1)} percent click rate</span>
                   </div>
                 </>
               )}
