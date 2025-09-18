@@ -32,6 +32,24 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<'last_12_months' | 'last_24_months' | 'all_time'>('last_12_months');
+  const [copied, setCopied] = useState(false);
+
+  const buildApiUrl = () => {
+    if (!campaign) return '';
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    return `${origin}/api/klaviyo/campaigns/${campaign.id}/stats?timeframe=${timeframe}`;
+  };
+
+  const handleCopyUrl = async () => {
+    try {
+      const url = buildApiUrl();
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setError('Failed to copy URL');
+    }
+  };
 
   // map percentage (0-100) to Tailwind width classes in 12 steps
   const widthClass = (pct: number) => {
@@ -159,6 +177,15 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
                     <option value="last_24_months">Last 24 months</option>
                     <option value="all_time">All time</option>
                   </select>
+                  <button
+                    type="button"
+                    onClick={handleCopyUrl}
+                    className="border rounded-md text-xs px-2 py-1 hover:bg-muted"
+                    aria-label="Copy API URL"
+                    title="Copy API URL"
+                  >
+                    {copied ? 'Copied' : 'Copy API URL'}
+                  </button>
                 </div>
               </div>
             </CardHeader>
