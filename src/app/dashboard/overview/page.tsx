@@ -16,6 +16,7 @@ export default function OverviewPage() {
   const dateRange = useDateRange();
   const [selectedCampaign, setSelectedCampaign] = useState<KlaviyoCampaign | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [campaignTimeframe, setCampaignTimeframe] = useState<'last_30_days' | 'last_90_days' | 'last_12_months' | 'all_time'>('last_90_days');
 
   // Fetch Klaviyo metrics
   const { 
@@ -215,12 +216,38 @@ export default function OverviewPage() {
 
       {/* Campaign Performance Table */}
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Recent Campaign Performance</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Recent Campaign Performance</h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Timeframe</span>
+            <select
+              aria-label="Campaign timeframe"
+              className="border rounded-md text-sm px-2 py-1"
+              value={campaignTimeframe}
+              onChange={(e) => setCampaignTimeframe(e.target.value as typeof campaignTimeframe)}
+            >
+              <option value="last_30_days">Last 30 days</option>
+              <option value="last_90_days">Last 90 days</option>
+              <option value="last_12_months">Last 12 months</option>
+              <option value="all_time">All time</option>
+            </select>
+          </div>
+        </div>
         {campaignsLoading ? (
           <Skeleton className="h-[400px] w-full" />
         ) : (
           <DataTable
-            data={(campaigns || []).filter((c: KlaviyoCampaign) => c.status === 'sent')}
+            data={(campaigns || [])
+              .filter((c: KlaviyoCampaign) => c.status === 'sent')
+              .filter((c: KlaviyoCampaign) => {
+                if (campaignTimeframe === 'all_time') return true;
+                const sent = new Date(c.sentAt);
+                const now = new Date();
+                const days = campaignTimeframe === 'last_30_days' ? 30 : campaignTimeframe === 'last_90_days' ? 90 : 365;
+                const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+                return sent >= cutoff;
+              })
+            }
             columns={[
               {
                 key: 'name',
