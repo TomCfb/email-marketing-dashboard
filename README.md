@@ -35,6 +35,42 @@ curl "http://localhost:3000/api/klaviyo/campaigns/REPLACE_ID/stats?timeframe=las
 - We removed unsupported Reporting API statistics (e.g., `revenue`) to avoid 400 errors.
 - No fallback or synthetic data is used anywhere for campaign stats. If the API returns nothing, the UI clearly states there are no stats for the selected timeframe.
 
+## 🔒 Live-Only Data Policy
+
+This dashboard is enforced to show only live data from Klaviyo (and Triple Whale via MCP). There are NO mock values, NO synthetic placeholders, and NO silent fallbacks.
+
+- Live-source verification
+  - All API responses include `meta.liveSource` and `meta.fetchedAt`.
+  - Client code verifies `meta.liveSource === 'klaviyo'` (or `'triple_whale'`) before rendering data.
+  - If verification fails, the UI shows a clear error instead of any fallback values.
+
+- No caching
+  - Server responses set strict no-cache headers (`Cache-Control: no-store`, etc.).
+  - Client requests use `cache: 'no-store'` and a timestamp query param to avoid intermediary caches.
+
+- Error handling
+  - If upstream is unavailable, endpoints return 5xx with a descriptive error.
+  - The UI surfaces the error; it does not substitute mock/test data.
+
+- Triple Whale via MCP stdio (no REST)
+  - Triple Whale metrics require the official MCP stdio client and API key.
+  - If `TRIPLE_WHALE_USE_MCP_STDIO` is not `true` or the MCP stdio call fails, the API returns `503` (no baseline/fallback data).
+
+- Health indicators
+  - The Overview shows a small health panel with live badges and timestamps for Klaviyo, Triple Whale, and Campaigns.
+  - KPI cards show a "Live" badge when data is verified.
+
+Environment variables:
+
+```env
+# Required
+KLAVIYO_API_KEY=***
+
+# Triple Whale MCP stdio (required for live Triple Whale metrics)
+TRIPLE_WHALE_API_KEY=***
+TRIPLE_WHALE_USE_MCP_STDIO=true
+```
+
 # 📊 Email Marketing Analytics Dashboard
 
 ## 🎯 Overview

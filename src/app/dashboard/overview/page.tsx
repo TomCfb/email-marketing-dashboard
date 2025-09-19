@@ -102,6 +102,10 @@ export default function OverviewPage() {
   const isLoading = klaviyoLoading || tripleWhaleLoading;
   const klaviyoLive = !!klaviyoResponse?.meta?.liveSource && klaviyoResponse.meta.liveSource === 'klaviyo';
   const tripleWhaleLive = !!tripleWhaleResponse?.meta?.liveSource && tripleWhaleResponse.meta.liveSource === 'triple_whale';
+  const campaignsLive = !!campaignsResponse?.meta?.liveSource && campaignsResponse.meta.liveSource === 'klaviyo';
+  const klaviyoFetchedAt = klaviyoResponse?.meta?.fetchedAt;
+  const tripleWhaleFetchedAt = tripleWhaleResponse?.meta?.fetchedAt;
+  const campaignsFetchedAt = campaignsResponse?.meta?.fetchedAt;
   
   // Only show error if both APIs fail
   const hasCriticalError = klaviyoError && tripleWhaleError;
@@ -134,6 +138,22 @@ export default function OverviewPage() {
 
   return (
     <div className="space-y-6">
+      {/* Live Health Panel */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-xs text-muted-foreground">Live Health</span>
+        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${klaviyoLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+          <span className={`h-2 w-2 rounded-full ${klaviyoLive ? 'bg-green-500' : 'bg-red-500'}`} />
+          Klaviyo {klaviyoLive ? 'Live' : 'Down'}{klaviyoFetchedAt ? ` • ${new Date(klaviyoFetchedAt).toLocaleTimeString()}` : ''}
+        </span>
+        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${tripleWhaleLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+          <span className={`h-2 w-2 rounded-full ${tripleWhaleLive ? 'bg-green-500' : 'bg-red-500'}`} />
+          Triple Whale {tripleWhaleLive ? 'Live' : 'Down'}{tripleWhaleFetchedAt ? ` • ${new Date(tripleWhaleFetchedAt).toLocaleTimeString()}` : ''}
+        </span>
+        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${campaignsLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+          <span className={`h-2 w-2 rounded-full ${campaignsLive ? 'bg-green-500' : 'bg-yellow-500'}`} />
+          Campaigns {campaignsLive ? 'Live' : 'Pending'}{campaignsFetchedAt ? ` • ${new Date(campaignsFetchedAt).toLocaleTimeString()}` : ''}
+        </span>
+      </div>
       {/* API Status Warnings */}
       {showWarnings && (
         <div className="space-y-2">
@@ -225,7 +245,15 @@ export default function OverviewPage() {
       {/* Charts Section */}
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Revenue Comparison</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Revenue Comparison</h3>
+            {klaviyoLive && tripleWhaleLive && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                Live
+              </span>
+            )}
+          </div>
           {isLoading ? (
             <Skeleton className="h-[300px] w-full" />
           ) : klaviyoMetrics && tripleWhaleMetrics ? (
@@ -251,7 +279,15 @@ export default function OverviewPage() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Performance Metrics</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Performance Metrics</h3>
+            {klaviyoLive && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                Live
+              </span>
+            )}
+          </div>
           {isLoading ? (
             <Skeleton className="h-[300px] w-full" />
           ) : (
@@ -276,7 +312,15 @@ export default function OverviewPage() {
       {/* Campaign Performance Table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <h3 className="text-lg font-semibold">Recent Campaign Performance</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold">Recent Campaign Performance</h3>
+            {campaignsLive && (
+              <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                Live
+              </span>
+            )}
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Min Opens</span>
