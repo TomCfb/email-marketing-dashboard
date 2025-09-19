@@ -14,6 +14,7 @@ interface MetricCardProps {
   loading?: boolean;
   error?: string;
   className?: string;
+  live?: boolean;
 }
 
 export function MetricCard({
@@ -24,6 +25,7 @@ export function MetricCard({
   loading = false,
   error,
   className,
+  live,
 }: MetricCardProps) {
   if (loading) {
     return (
@@ -49,7 +51,7 @@ export function MetricCard({
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-sm text-destructive">Error loading data</div>
+          <div className="text-sm text-destructive">{error}</div>
         </CardContent>
       </Card>
     );
@@ -61,7 +63,14 @@ export function MetricCard({
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}
         </CardTitle>
-        {change !== undefined && (
+        <div className="flex items-center gap-2">
+          {live && (
+            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Live
+            </span>
+          )}
+          {change !== undefined && (
           <div className={cn(
             "flex items-center text-xs",
             changeType === 'increase' ? "text-green-600" : "text-red-600"
@@ -72,7 +81,8 @@ export function MetricCard({
               <TrendingDown className="h-3 w-3" />
             )}
           </div>
-        )}
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">{value}</div>

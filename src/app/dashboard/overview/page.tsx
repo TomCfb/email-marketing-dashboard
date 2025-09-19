@@ -40,9 +40,14 @@ export default function OverviewPage() {
   } = useQuery({
     queryKey: [...QueryKeys.klaviyoMetrics(metricsFromTo), metricsTimeframe],
     queryFn: async () => {
-      const response = await fetch(`/api/klaviyo/metrics?from=${metricsFromTo.from.toISOString()}&to=${metricsFromTo.to.toISOString()}`);
+      const url = `/api/klaviyo/metrics?from=${metricsFromTo.from.toISOString()}&to=${metricsFromTo.to.toISOString()}&ts=${Date.now()}`;
+      const response = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-store' } });
       if (!response.ok) throw new Error('Failed to fetch Klaviyo metrics');
-      return response.json();
+      const json = await response.json();
+      if (!json?.meta || json.meta.liveSource !== 'klaviyo') {
+        throw new Error('Live source verification failed for Klaviyo metrics');
+      }
+      return json;
     },
     retry: 3,
     retryDelay: 1000,
@@ -56,9 +61,14 @@ export default function OverviewPage() {
   } = useQuery({
     queryKey: [...QueryKeys.tripleWhaleMetrics(metricsFromTo), metricsTimeframe],
     queryFn: async () => {
-      const response = await fetch(`/api/triple-whale/metrics?from=${metricsFromTo.from.toISOString()}&to=${metricsFromTo.to.toISOString()}`);
+      const url = `/api/triple-whale/metrics?from=${metricsFromTo.from.toISOString()}&to=${metricsFromTo.to.toISOString()}&ts=${Date.now()}`;
+      const response = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-store' } });
       if (!response.ok) throw new Error('Failed to fetch Triple Whale metrics');
-      return response.json();
+      const json = await response.json();
+      if (!json?.meta || json.meta.liveSource !== 'triple_whale') {
+        throw new Error('Live source verification failed for Triple Whale metrics');
+      }
+      return json;
     },
     retry: 3,
     retryDelay: 1000,
@@ -71,9 +81,14 @@ export default function OverviewPage() {
   } = useQuery({
     queryKey: QueryKeys.klaviyoCampaigns(dateRange),
     queryFn: async () => {
-      const response = await fetch(`/api/klaviyo/campaigns?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}`);
+      const url = `/api/klaviyo/campaigns?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}&ts=${Date.now()}`;
+      const response = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-store' } });
       if (!response.ok) throw new Error('Failed to fetch campaigns');
-      return response.json();
+      const json = await response.json();
+      if (!json?.meta || json.meta.liveSource !== 'klaviyo') {
+        throw new Error('Live source verification failed for Klaviyo campaigns');
+      }
+      return json;
     },
     retry: 3,
     retryDelay: 1000,
@@ -85,8 +100,8 @@ export default function OverviewPage() {
   const campaigns = campaignsResponse?.data;
 
   const isLoading = klaviyoLoading || tripleWhaleLoading;
-  const hasKlaviyoData = klaviyoMetrics && !klaviyoError;
-  const hasTripleWhaleData = tripleWhaleMetrics && !tripleWhaleError;
+  const klaviyoLive = !!klaviyoResponse?.meta?.liveSource && klaviyoResponse.meta.liveSource === 'klaviyo';
+  const tripleWhaleLive = !!tripleWhaleResponse?.meta?.liveSource && tripleWhaleResponse.meta.liveSource === 'triple_whale';
   
   // Only show error if both APIs fail
   const hasCriticalError = klaviyoError && tripleWhaleError;
@@ -172,6 +187,8 @@ export default function OverviewPage() {
           change={12.5}
           changeType="increase"
           loading={isLoading}
+          error={tripleWhaleError instanceof Error ? tripleWhaleError.message : undefined}
+          live={tripleWhaleLive}
         />
         <MetricCard
           title="Email Revenue"
@@ -179,6 +196,8 @@ export default function OverviewPage() {
           change={8.2}
           changeType="increase"
           loading={isLoading}
+          error={klaviyoError instanceof Error ? klaviyoError.message : undefined}
+          live={klaviyoLive}
         />
         <MetricCard
           title="Email Attribution"
@@ -189,6 +208,8 @@ export default function OverviewPage() {
           change={2.1}
           changeType="increase"
           loading={isLoading}
+          error={klaviyoError instanceof Error ? klaviyoError.message : undefined}
+          live={klaviyoLive && tripleWhaleLive}
         />
         <MetricCard
           title="Conversion Rate"
@@ -196,6 +217,8 @@ export default function OverviewPage() {
           change={-0.5}
           changeType="decrease"
           loading={isLoading}
+          error={klaviyoError instanceof Error ? klaviyoError.message : undefined}
+          live={klaviyoLive}
         />
       </div>
 
@@ -205,18 +228,25 @@ export default function OverviewPage() {
           <h3 className="text-lg font-semibold">Revenue Comparison</h3>
           {isLoading ? (
             <Skeleton className="h-[300px] w-full" />
-          ) : (
+          ) : klaviyoMetrics && tripleWhaleMetrics ? (
             <ComparisonChart
               data={{
                 klaviyo: [
-                  { date: metricsFromTo.from.toISOString(), value: klaviyoMetrics?.emailRevenue || 0, label: 'Email Revenue' }
+                  { date: metricsFromTo.from.toISOString(), value: klaviyoMetrics.emailRevenue, label: 'Email Revenue' }
                 ],
                 tripleWhale: [
-                  { date: metricsFromTo.from.toISOString(), value: tripleWhaleMetrics?.totalRevenue || 0, label: 'Total Revenue' }
+                  { date: metricsFromTo.from.toISOString(), value: tripleWhaleMetrics.totalRevenue, label: 'Total Revenue' }
                 ]
               }}
               title="Revenue Attribution"
             />
+          ) : (
+            <Alert variant="default">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Revenue data unavailable. Ensure both Klaviyo and Triple Whale live sources are reachable.
+              </AlertDescription>
+            </Alert>
           )}
         </div>
 

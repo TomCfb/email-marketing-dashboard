@@ -17,7 +17,23 @@ export async function GET() {
     const campaigns = await client.getCampaigns();
 
     console.log('Klaviyo API: Successfully fetched campaigns:', campaigns.data?.length);
-    return NextResponse.json(campaigns);
+    return NextResponse.json(
+      {
+        ...campaigns,
+        meta: {
+          liveSource: 'klaviyo',
+          fetchedAt: new Date().toISOString(),
+        },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Surrogate-Control': 'no-store',
+        },
+      }
+    );
   } catch (error) {
     console.error('Klaviyo API: Error fetching campaigns:', error);
 
