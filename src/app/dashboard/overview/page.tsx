@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { ComparisonChart } from '@/components/charts/comparison-chart';
 import { DataTable } from '@/components/shared/data-table';
@@ -13,6 +14,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 
 export default function OverviewPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const dateRange = useDateRange();
   const [selectedCampaign, setSelectedCampaign] = useState<KlaviyoCampaign | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -49,6 +53,20 @@ export default function OverviewPage() {
       }
       return json;
     },
+    retry: 3,
+    retryDelay: 1000,
+  });
+
+  // Health polling (60s) - verifies live status without placeholders
+  const { data: health, refetch: refetchHealth } = useQuery({
+    queryKey: ['health'],
+    queryFn: async () => {
+      const url = `/api/health?ts=${Date.now()}`;
+      const res = await fetch(url, { cache: 'no-store', headers: { 'Cache-Control': 'no-store' } });
+      if (!res.ok) throw new Error('Health check failed');
+      return res.json();
+    },
+    refetchInterval: 60000,
     retry: 3,
     retryDelay: 1000,
   });
@@ -100,12 +118,12 @@ export default function OverviewPage() {
   const campaigns = campaignsResponse?.data;
 
   const isLoading = klaviyoLoading || tripleWhaleLoading;
-  const klaviyoLive = !!klaviyoResponse?.meta?.liveSource && klaviyoResponse.meta.liveSource === 'klaviyo';
-  const tripleWhaleLive = !!tripleWhaleResponse?.meta?.liveSource && tripleWhaleResponse.meta.liveSource === 'triple_whale';
-  const campaignsLive = !!campaignsResponse?.meta?.liveSource && campaignsResponse.meta.liveSource === 'klaviyo';
-  const klaviyoFetchedAt = klaviyoResponse?.meta?.fetchedAt;
-  const tripleWhaleFetchedAt = tripleWhaleResponse?.meta?.fetchedAt;
-  const campaignsFetchedAt = campaignsResponse?.meta?.fetchedAt;
+  const klaviyoLive = health?.klaviyo?.live ?? (!!klaviyoResponse?.meta?.liveSource && klaviyoResponse.meta.liveSource === 'klaviyo');
+  const tripleWhaleLive = health?.tripleWhale?.live ?? (!!tripleWhaleResponse?.meta?.liveSource && tripleWhaleResponse.meta.liveSource === 'triple_whale');
+  const campaignsLive = health?.campaigns?.live ?? (!!campaignsResponse?.meta?.liveSource && campaignsResponse.meta.liveSource === 'klaviyo');
+  const klaviyoFetchedAt = health?.klaviyo?.fetchedAt ?? klaviyoResponse?.meta?.fetchedAt;
+  const tripleWhaleFetchedAt = health?.tripleWhale?.fetchedAt ?? tripleWhaleResponse?.meta?.fetchedAt;
+  const campaignsFetchedAt = health?.campaigns?.fetchedAt ?? campaignsResponse?.meta?.fetchedAt;
   
   // Only show error if both APIs fail
   const hasCriticalError = klaviyoError && tripleWhaleError;
@@ -196,6 +214,24 @@ export default function OverviewPage() {
             <option value="last_90_days">Last 90 days</option>
             <option value="last_12_months">Last 12 months</option>
           </select>
+          <button
+            type="button"
+            aria-label="Refresh data"
+            className="border rounded-md text-sm px-2 py-1 hover:bg-muted"
+            onClick={async () => {
+              // Append ts param to URL without navigation
+              const params = new URLSearchParams(searchParams?.toString() || '');
+              params.set('ts', String(Date.now()));
+              router.replace(`?${params.toString()}`);
+              // Invalidate and refetch all relevant queries
+              await Promise.all([
+                queryClient.invalidateQueries(),
+                refetchHealth(),
+              ]);
+            }}
+          >
+            Refresh
+          </button>
         </div>
       </div>
 
