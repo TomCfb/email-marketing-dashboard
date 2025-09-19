@@ -15,6 +15,7 @@ interface MetricCardProps {
   error?: string;
   className?: string;
   live?: boolean;
+  fetchedAt?: string | null;
 }
 
 export function MetricCard({
@@ -26,6 +27,7 @@ export function MetricCard({
   error,
   className,
   live,
+  fetchedAt,
 }: MetricCardProps) {
   if (loading) {
     return (
@@ -65,9 +67,17 @@ export function MetricCard({
         </CardTitle>
         <div className="flex items-center gap-2">
           {live && (
-            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+            <span
+              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200"
+              title={fetchedAt ? `Fetched at ${new Date(fetchedAt).toLocaleTimeString()}` : 'Live verified'}
+            >
               <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
               Live
+            </span>
+          )}
+          {fetchedAt && (
+            <span className="text-[10px] text-muted-foreground" title={new Date(fetchedAt).toLocaleString()}>
+              as of {new Date(fetchedAt).toLocaleTimeString()}
             </span>
           )}
           {change !== undefined && (

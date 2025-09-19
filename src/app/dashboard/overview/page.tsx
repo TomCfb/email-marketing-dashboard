@@ -168,18 +168,34 @@ export default function OverviewPage() {
       {/* Live Health Panel */}
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-xs text-muted-foreground">Live Health</span>
-        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${klaviyoLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${klaviyoLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`} title={(!klaviyoLive && health?.klaviyo?.error) ? health.klaviyo.error : undefined}>
           <span className={`h-2 w-2 rounded-full ${klaviyoLive ? 'bg-green-500' : 'bg-red-500'}`} />
           Klaviyo {klaviyoLive ? 'Live' : 'Down'}{klaviyoFetchedAt ? ` • ${new Date(klaviyoFetchedAt).toLocaleTimeString()}` : ''}
         </span>
-        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${tripleWhaleLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${tripleWhaleLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`} title={(!tripleWhaleLive && health?.tripleWhale?.error) ? health.tripleWhale.error : undefined}>
           <span className={`h-2 w-2 rounded-full ${tripleWhaleLive ? 'bg-green-500' : 'bg-red-500'}`} />
           Triple Whale {tripleWhaleLive ? 'Live' : 'Down'}{tripleWhaleFetchedAt ? ` • ${new Date(tripleWhaleFetchedAt).toLocaleTimeString()}` : ''}
         </span>
-        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${campaignsLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`}>
+        <span className={`inline-flex items-center gap-2 text-xs px-2 py-1 rounded border ${campaignsLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}`} title={(!campaignsLive && health?.campaigns?.error) ? health.campaigns.error : undefined}>
           <span className={`h-2 w-2 rounded-full ${campaignsLive ? 'bg-green-500' : 'bg-yellow-500'}`} />
           Campaigns {campaignsLive ? 'Live' : 'Pending'}{campaignsFetchedAt ? ` • ${new Date(campaignsFetchedAt).toLocaleTimeString()}` : ''}
         </span>
+        {health && (
+          <button
+            type="button"
+            className="text-xs border rounded px-2 py-0.5 hover:bg-muted"
+            title="Copy /api/health JSON"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(JSON.stringify(health));
+                setRefreshAck(true);
+                setTimeout(() => setRefreshAck(false), 1200);
+              } catch {}
+            }}
+          >
+            Copy Health JSON
+          </button>
+        )}
       </div>
       {/* API Status Warnings */}
       {showWarnings && (
@@ -285,6 +301,7 @@ export default function OverviewPage() {
           loading={isLoading}
           error={tripleWhaleError instanceof Error ? tripleWhaleError.message : undefined}
           live={tripleWhaleLive}
+          fetchedAt={tripleWhaleFetchedAt}
         />
         <MetricCard
           title="Email Revenue"
@@ -294,6 +311,7 @@ export default function OverviewPage() {
           loading={isLoading}
           error={klaviyoError instanceof Error ? klaviyoError.message : undefined}
           live={klaviyoLive}
+          fetchedAt={klaviyoFetchedAt}
         />
         <MetricCard
           title="Email Attribution"
@@ -306,6 +324,7 @@ export default function OverviewPage() {
           loading={isLoading}
           error={klaviyoError instanceof Error ? klaviyoError.message : undefined}
           live={klaviyoLive && tripleWhaleLive}
+          fetchedAt={klaviyoFetchedAt && tripleWhaleFetchedAt ? (new Date(Math.max(new Date(klaviyoFetchedAt).getTime(), new Date(tripleWhaleFetchedAt).getTime())).toISOString()) : (klaviyoFetchedAt || tripleWhaleFetchedAt || null)}
         />
         <MetricCard
           title="Conversion Rate"
@@ -315,6 +334,7 @@ export default function OverviewPage() {
           loading={isLoading}
           error={klaviyoError instanceof Error ? klaviyoError.message : undefined}
           live={klaviyoLive}
+          fetchedAt={klaviyoFetchedAt}
         />
       </div>
 

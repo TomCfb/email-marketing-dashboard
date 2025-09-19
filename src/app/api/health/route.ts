@@ -11,29 +11,80 @@ export async function GET() {
       fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/klaviyo/campaigns?ts=${ts}`, { cache: 'no-store', headers }),
     ]);
 
-    const result = {
-      klaviyo: { live: false as boolean, fetchedAt: null as string | null, status: klaviyoRes.status },
-      tripleWhale: { live: false as boolean, fetchedAt: null as string | null, status: tripleRes.status },
-      campaigns: { live: false as boolean, fetchedAt: null as string | null, status: campaignsRes.status },
+    type HealthEntry = { live: boolean; fetchedAt: string | null; status: number; error: string | null };
+    const result: { klaviyo: HealthEntry; tripleWhale: HealthEntry; campaigns: HealthEntry } = {
+      klaviyo: { live: false, fetchedAt: null, status: klaviyoRes.status, error: null },
+      tripleWhale: { live: false, fetchedAt: null, status: tripleRes.status, error: null },
+      campaigns: { live: false, fetchedAt: null, status: campaignsRes.status, error: null },
     };
 
-    try {
-      const k = await klaviyoRes.json();
-      result.klaviyo.live = !!k?.meta && k.meta.liveSource === 'klaviyo';
-      result.klaviyo.fetchedAt = k?.meta?.fetchedAt || null;
-    } catch {}
+    // Helper to parse JSON or text for error details
+    const parseResponse = async (res: Response): Promise<unknown> => {
+      try {
+        return await res.json();
+      } catch {
+        try {
+          const text = await res.text();
+          return { error: text } as { error: string };
+        } catch {
+          return null as unknown;
+        }
+      }
+    };
 
-    try {
-      const t = await tripleRes.json();
-      result.tripleWhale.live = !!t?.meta && t.meta.liveSource === 'triple_whale';
-      result.tripleWhale.fetchedAt = t?.meta?.fetchedAt || null;
-    } catch {}
+    const [k, t, c] = await Promise.all([parseResponse(klaviyoRes), parseResponse(tripleRes), parseResponse(campaignsRes)]);
 
-    try {
-      const c = await campaignsRes.json();
-      result.campaigns.live = !!c?.meta && c.meta.liveSource === 'klaviyo';
-      result.campaigns.fetchedAt = c?.meta?.fetchedAt || null;
-    } catch {}
+    const readMeta = (obj: unknown): { liveSource?: string; fetchedAt?: string } | null => {
+      if (obj && typeof obj === 'object' && 'meta' in obj) {
+        const meta = (obj as { meta?: unknown }).meta;
+        if (meta && typeof meta === 'object') {
+          const m = meta as { liveSource?: unknown; fetchedAt?: unknown };
+          return {
+            liveSource: typeof m.liveSource === 'string' ? m.liveSource : undefined,
+            fetchedAt: typeof m.fetchedAt === 'string' ? m.fetchedAt : undefined,
+          };
+        }
+      }
+      return null;
+    };
+
+    const readError = (obj: unknown): string | null => {
+      if (obj && typeof obj === 'object' && 'error' in obj) {
+        const e = (obj as { error?: unknown }).error;
+        if (typeof e === 'string') return e;
+        if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+          return (e as { message: string }).message;
+        }
+      }
+      return null;
+    };
+
+    const km = readMeta(k);
+    if (km) {
+      result.klaviyo.live = km.liveSource === 'klaviyo';
+      result.klaviyo.fetchedAt = km.fetchedAt || null;
+    }
+    if (!result.klaviyo.live) {
+      result.klaviyo.error = readError(k);
+    }
+
+    const tm = readMeta(t);
+    if (tm) {
+      result.tripleWhale.live = tm.liveSource === 'triple_whale';
+      result.tripleWhale.fetchedAt = tm.fetchedAt || null;
+    }
+    if (!result.tripleWhale.live) {
+      result.tripleWhale.error = readError(t);
+    }
+
+    const cm = readMeta(c);
+    if (cm) {
+      result.campaigns.live = cm.liveSource === 'klaviyo';
+      result.campaigns.fetchedAt = cm.fetchedAt || null;
+    }
+    if (!result.campaigns.live) {
+      result.campaigns.error = readError(c);
+    }
 
     return NextResponse.json(result, {
       headers: {
