@@ -11,7 +11,7 @@ import { useDateRange } from '@/lib/store/dashboard-store';
 import { QueryKeys, KlaviyoCampaign } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 
 export default function OverviewPage() {
   const router = useRouter();
@@ -21,6 +21,8 @@ export default function OverviewPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<KlaviyoCampaign | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [metricsTimeframe, setMetricsTimeframe] = useState<'last_30_days' | 'last_90_days' | 'last_12_months'>('last_90_days');
+  const [refreshAck, setRefreshAck] = useState(false);
+  const [refreshLoading, setRefreshLoading] = useState(false);
 
   const metricsFromTo = useMemo(() => {
     const now = new Date();
@@ -124,6 +126,13 @@ export default function OverviewPage() {
   const klaviyoFetchedAt = health?.klaviyo?.fetchedAt ?? klaviyoResponse?.meta?.fetchedAt;
   const tripleWhaleFetchedAt = health?.tripleWhale?.fetchedAt ?? tripleWhaleResponse?.meta?.fetchedAt;
   const campaignsFetchedAt = health?.campaigns?.fetchedAt ?? campaignsResponse?.meta?.fetchedAt;
+  const latestFetchedAt = useMemo(() => {
+    const times = [klaviyoFetchedAt, tripleWhaleFetchedAt, campaignsFetchedAt]
+      .filter(Boolean)
+      .map((t) => new Date(t as string).getTime());
+    if (times.length === 0) return null;
+    return new Date(Math.max(...times)).toLocaleTimeString();
+  }, [klaviyoFetchedAt, tripleWhaleFetchedAt, campaignsFetchedAt]);
   
   // Only show error if both APIs fail
   const hasCriticalError = klaviyoError && tripleWhaleError;
@@ -191,6 +200,16 @@ export default function OverviewPage() {
               </AlertDescription>
             </Alert>
           )}
+          <div className="text-xs text-muted-foreground">
+            <a
+              href="https://github.com/TomCfb/email-marketing-dashboard#-debugging--testing"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:no-underline"
+            >
+              View logs & debugging guidance
+            </a>
+          </div>
         </div>
       )}
 
@@ -214,24 +233,45 @@ export default function OverviewPage() {
             <option value="last_90_days">Last 90 days</option>
             <option value="last_12_months">Last 12 months</option>
           </select>
+          {latestFetchedAt && (
+            <span className="text-xs text-muted-foreground">Last updated {latestFetchedAt}</span>
+          )}
           <button
             type="button"
             aria-label="Refresh data"
-            className="border rounded-md text-sm px-2 py-1 hover:bg-muted"
+            className="border rounded-md text-sm px-2 py-1 hover:bg-muted inline-flex items-center gap-1"
+            disabled={refreshLoading}
             onClick={async () => {
               // Append ts param to URL without navigation
               const params = new URLSearchParams(searchParams?.toString() || '');
               params.set('ts', String(Date.now()));
               router.replace(`?${params.toString()}`);
               // Invalidate and refetch all relevant queries
-              await Promise.all([
-                queryClient.invalidateQueries(),
-                refetchHealth(),
-              ]);
+              setRefreshLoading(true);
+              try {
+                await Promise.all([
+                  queryClient.invalidateQueries({ queryKey: QueryKeys.klaviyoMetrics(metricsFromTo) }),
+                  queryClient.invalidateQueries({ queryKey: QueryKeys.tripleWhaleMetrics(metricsFromTo) }),
+                  queryClient.invalidateQueries({ queryKey: QueryKeys.klaviyoCampaigns(dateRange) }),
+                  queryClient.invalidateQueries({ queryKey: ['health'] }),
+                  refetchHealth(),
+                ]);
+                setRefreshAck(true);
+                setTimeout(() => setRefreshAck(false), 1500);
+              } finally {
+                setRefreshLoading(false);
+              }
             }}
           >
+            {refreshLoading && <Loader2 className="h-3 w-3 animate-spin" />}
             Refresh
           </button>
+          {refreshAck && (
+            <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">
+              <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              Refreshed
+            </span>
+          )}
         </div>
       </div>
 
