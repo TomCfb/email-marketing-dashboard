@@ -17,7 +17,24 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     const client = new KlaviyoMCPClient(apiKey);
     const stats = await client.getCampaignStats(campaignId, timeframe ?? undefined);
 
-    return NextResponse.json(stats, { status: 200 });
+    return NextResponse.json(
+      {
+        ...stats,
+        meta: {
+          liveSource: 'klaviyo',
+          fetchedAt: new Date().toISOString(),
+        },
+      },
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Surrogate-Control': 'no-store',
+        },
+      }
+    );
   } catch (error) {
     return NextResponse.json(
       {

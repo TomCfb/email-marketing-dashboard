@@ -454,24 +454,11 @@ export class KlaviyoMCPClient {
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.error('Error fetching Klaviyo flows:', error);
-      // Return fallback data on API failure
-      const fallbackFlows: KlaviyoFlow[] = [
-        {
-          id: 'flow_fallback_1',
-          name: 'API Error - Using Fallback Data',
-          status: 'active',
-          emails: 5,
-          revenue: 8500.75,
-          conversionRate: 12.5,
-          subscribers: 1850,
-        },
-      ];
-      return {
-        data: fallbackFlows,
-        success: true,
-        timestamp: new Date().toISOString(),
-      };
+      logger.critical('KLAVIYO_FLOWS', 'Failed to fetch real Klaviyo flows - NO FALLBACK ALLOWED', {
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
+      }, error as Error);
+      throw new Error(`Failed to fetch real Klaviyo flows: ${(error as Error).message}`);
     }
   }
 
@@ -479,48 +466,16 @@ export class KlaviyoMCPClient {
     try {
       console.log('Fetching real Klaviyo segments data...');
       
-      // Note: Segments endpoint requires specific permissions
-      // Using fallback data for now
-      const segments: KlaviyoSegment[] = [
-        {
-          id: 'seg_001',
-          name: 'Active Subscribers',
-          count: 1250,
-          estimatedCount: 1250,
-          isProcessing: false,
-        },
-        {
-          id: 'seg_002', 
-          name: 'High Value Customers',
-          count: 340,
-          estimatedCount: 340,
-          isProcessing: false,
-        }
-      ];
-
-      console.log(`Successfully fetched ${segments.length} Klaviyo segments`);
-      return {
-        data: segments,
-        success: true,
-        timestamp: new Date().toISOString(),
-      };
+      // Note: Segments endpoint requires specific permissions.
+      // Live-only policy: do NOT return synthetic or placeholder data.
+      // Implement real call when permission is available; for now, throw explicit error.
+      throw new Error('Klaviyo Segments API requires additional permissions - live data unavailable');
     } catch (error) {
-      console.error('Error fetching Klaviyo segments:', error);
-      // Return fallback data on API failure
-      const fallbackSegments: KlaviyoSegment[] = [
-        {
-          id: 'seg_fallback_1',
-          name: 'API Error - Using Fallback Data',
-          count: 2450,
-          estimatedCount: 2500,
-          isProcessing: false,
-        },
-      ];
-      return {
-        data: fallbackSegments,
-        success: true,
-        timestamp: new Date().toISOString(),
-      };
+      logger.critical('KLAVIYO_SEGMENTS', 'Failed to fetch real Klaviyo segments - NO FALLBACK ALLOWED', {
+        errorMessage: (error as Error).message,
+        errorStack: (error as Error).stack,
+      }, error as Error);
+      throw new Error(`Failed to fetch real Klaviyo segments: ${(error as Error).message}`);
     }
   }
 

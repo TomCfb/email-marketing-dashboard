@@ -83,7 +83,23 @@ export async function GET(request: NextRequest) {
       metricsKeys: Object.keys(metrics.data || {}),
     });
 
-    return NextResponse.json(metrics);
+    return NextResponse.json(
+      {
+        ...metrics,
+        meta: {
+          liveSource: 'klaviyo',
+          fetchedAt: new Date().toISOString(),
+        },
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Surrogate-Control': 'no-store',
+        },
+      }
+    );
   } catch (error) {
     const duration = Date.now() - startTime;
     logger.critical('API_KLAVIYO_METRICS', 'Critical error in API route', {

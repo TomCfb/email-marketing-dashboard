@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MetricCard } from '@/components/dashboard/metric-card';
 import { ComparisonChart } from '@/components/charts/comparison-chart';
@@ -16,7 +16,21 @@ export default function OverviewPage() {
   const dateRange = useDateRange();
   const [selectedCampaign, setSelectedCampaign] = useState<KlaviyoCampaign | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [campaignTimeframe, setCampaignTimeframe] = useState<'last_30_days' | 'last_90_days' | 'last_12_months' | 'all_time'>('last_90_days');
+  const [metricsTimeframe, setMetricsTimeframe] = useState<'last_30_days' | 'last_90_days' | 'last_12_months'>('last_90_days');
+
+  const metricsFromTo = useMemo(() => {
+    const now = new Date();
+    const days = metricsTimeframe === 'last_30_days' ? 30 : metricsTimeframe === 'last_90_days' ? 90 : 365;
+    const from = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+    const to = now;
+    return { from, to };
+  }, [metricsTimeframe]);
+
+  // Campaign quick filters
+  const [minOpens, setMinOpens] = useState<number>(0);
+  const [minClicks, setMinClicks] = useState<number>(0);
+  const [minOpenRate, setMinOpenRate] = useState<number>(0); // percent
+  const [minClickRate, setMinClickRate] = useState<number>(0); // percent
 
   // Fetch Klaviyo metrics
   const { 
@@ -24,9 +38,9 @@ export default function OverviewPage() {
     isLoading: klaviyoLoading, 
     error: klaviyoError 
   } = useQuery({
-    queryKey: QueryKeys.klaviyoMetrics(dateRange),
+    queryKey: [...QueryKeys.klaviyoMetrics(metricsFromTo), metricsTimeframe],
     queryFn: async () => {
-      const response = await fetch(`/api/klaviyo/metrics?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}`);
+      const response = await fetch(`/api/klaviyo/metrics?from=${metricsFromTo.from.toISOString()}&to=${metricsFromTo.to.toISOString()}`);
       if (!response.ok) throw new Error('Failed to fetch Klaviyo metrics');
       return response.json();
     },
@@ -40,9 +54,9 @@ export default function OverviewPage() {
     isLoading: tripleWhaleLoading, 
     error: tripleWhaleError 
   } = useQuery({
-    queryKey: QueryKeys.tripleWhaleMetrics(dateRange),
+    queryKey: [...QueryKeys.tripleWhaleMetrics(metricsFromTo), metricsTimeframe],
     queryFn: async () => {
-      const response = await fetch(`/api/triple-whale/metrics?from=${dateRange.from.toISOString()}&to=${dateRange.to.toISOString()}`);
+      const response = await fetch(`/api/triple-whale/metrics?from=${metricsFromTo.from.toISOString()}&to=${metricsFromTo.to.toISOString()}`);
       if (!response.ok) throw new Error('Failed to fetch Triple Whale metrics');
       return response.json();
     },
@@ -128,11 +142,26 @@ export default function OverviewPage() {
       )}
 
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Overview Dashboard</h1>
-        <p className="text-muted-foreground">
-          Cross-platform analytics comparing Klaviyo and Triple Whale performance
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Overview Dashboard</h1>
+          <p className="text-muted-foreground">
+            Cross-platform analytics comparing Klaviyo and Triple Whale performance
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">KPI Timeframe</span>
+          <select
+            aria-label="KPI timeframe"
+            className="border rounded-md text-sm px-2 py-1"
+            value={metricsTimeframe}
+            onChange={(e) => setMetricsTimeframe(e.target.value as typeof metricsTimeframe)}
+          >
+            <option value="last_30_days">Last 30 days</option>
+            <option value="last_90_days">Last 90 days</option>
+            <option value="last_12_months">Last 12 months</option>
+          </select>
+        </div>
       </div>
 
       {/* KPI Cards Grid */}
@@ -180,10 +209,10 @@ export default function OverviewPage() {
             <ComparisonChart
               data={{
                 klaviyo: [
-                  { date: '2024-01-01', value: klaviyoMetrics?.emailRevenue || 0, label: 'Email Revenue' }
+                  { date: metricsFromTo.from.toISOString(), value: klaviyoMetrics?.emailRevenue || 0, label: 'Email Revenue' }
                 ],
                 tripleWhale: [
-                  { date: '2024-01-01', value: tripleWhaleMetrics?.totalRevenue || 0, label: 'Total Revenue' }
+                  { date: metricsFromTo.from.toISOString(), value: tripleWhaleMetrics?.totalRevenue || 0, label: 'Total Revenue' }
                 ]
               }}
               title="Revenue Attribution"
@@ -216,21 +245,51 @@ export default function OverviewPage() {
 
       {/* Campaign Performance Table */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <h3 className="text-lg font-semibold">Recent Campaign Performance</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Timeframe</span>
-            <select
-              aria-label="Campaign timeframe"
-              className="border rounded-md text-sm px-2 py-1"
-              value={campaignTimeframe}
-              onChange={(e) => setCampaignTimeframe(e.target.value as typeof campaignTimeframe)}
-            >
-              <option value="last_30_days">Last 30 days</option>
-              <option value="last_90_days">Last 90 days</option>
-              <option value="last_12_months">Last 12 months</option>
-              <option value="all_time">All time</option>
-            </select>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Min Opens</span>
+              <input
+                type="number"
+                min={0}
+                className="border rounded-md text-sm px-2 py-1 w-24"
+                value={minOpens}
+                onChange={(e) => setMinOpens(Number(e.target.value) || 0)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Min Clicks</span>
+              <input
+                type="number"
+                min={0}
+                className="border rounded-md text-sm px-2 py-1 w-24"
+                value={minClicks}
+                onChange={(e) => setMinClicks(Number(e.target.value) || 0)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Min Open %</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="border rounded-md text-sm px-2 py-1 w-24"
+                value={minOpenRate}
+                onChange={(e) => setMinOpenRate(Number(e.target.value) || 0)}
+              />
+            </label>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Min Click %</span>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="border rounded-md text-sm px-2 py-1 w-24"
+                value={minClickRate}
+                onChange={(e) => setMinClickRate(Number(e.target.value) || 0)}
+              />
+            </label>
           </div>
         </div>
         {campaignsLoading ? (
@@ -239,14 +298,11 @@ export default function OverviewPage() {
           <DataTable
             data={(campaigns || [])
               .filter((c: KlaviyoCampaign) => c.status === 'sent')
-              .filter((c: KlaviyoCampaign) => {
-                if (campaignTimeframe === 'all_time') return true;
-                const sent = new Date(c.sentAt);
-                const now = new Date();
-                const days = campaignTimeframe === 'last_30_days' ? 30 : campaignTimeframe === 'last_90_days' ? 90 : 365;
-                const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-                return sent >= cutoff;
-              })
+              .filter((c: KlaviyoCampaign) => new Date(c.sentAt) >= metricsFromTo.from)
+              .filter((c: KlaviyoCampaign) => c.opens >= minOpens)
+              .filter((c: KlaviyoCampaign) => c.clicks >= minClicks)
+              .filter((c: KlaviyoCampaign) => c.openRate >= minOpenRate)
+              .filter((c: KlaviyoCampaign) => c.clickRate >= minClickRate)
             }
             columns={[
               {

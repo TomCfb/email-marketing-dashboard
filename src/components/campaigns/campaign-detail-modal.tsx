@@ -34,11 +34,23 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
   const [error, setError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<'last_12_months' | 'last_24_months' | 'all_time'>('last_12_months');
   const [copied, setCopied] = useState(false);
+  const [idCopied, setIdCopied] = useState(false);
 
   const buildApiUrl = () => {
     if (!campaign) return '';
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     return `${origin}/api/klaviyo/campaigns/${campaign.id}/stats?timeframe=${timeframe}`;
+  };
+
+  const handleCopyId = async () => {
+    if (!campaign) return;
+    try {
+      await navigator.clipboard.writeText(campaign.id);
+      setIdCopied(true);
+      setTimeout(() => setIdCopied(false), 1500);
+    } catch {
+      setError('Failed to copy Campaign ID');
+    }
   };
 
   const handleCopyUrl = async () => {
@@ -70,9 +82,15 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/klaviyo/campaigns/${campaign.id}/stats?timeframe=${timeframe}`);
+        const res = await fetch(`/api/klaviyo/campaigns/${campaign.id}/stats?timeframe=${timeframe}&ts=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-store' },
+        });
         if (!res.ok) throw new Error(`Failed to load stats (${res.status})`);
         const json = await res.json();
+        if (!json?.meta || json.meta.liveSource !== 'klaviyo') {
+          throw new Error('Live source verification failed (non-Klaviyo data)');
+        }
         setStats(json.data as CampaignStats);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unknown error');
@@ -186,6 +204,25 @@ export function CampaignDetailModal({ campaign, isOpen, onClose }: CampaignDetai
                   >
                     <Info className="h-4 w-4 text-muted-foreground" />
                     <span className="sr-only">Timeframe help</span>
+                  </button>
+                  <a
+                    href={`https://app.klaviyo.com/campaigns/${campaign?.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="border rounded-md text-xs px-2 py-1 hover:bg-muted"
+                    aria-label="View in Klaviyo"
+                    title="Open this campaign in Klaviyo (opens in new tab)"
+                  >
+                    View in Klaviyo
+                  </a>
+                  <button
+                    type="button"
+                    onClick={handleCopyId}
+                    className="border rounded-md text-xs px-2 py-1 hover:bg-muted"
+                    aria-label="Copy Campaign ID"
+                    title="Copy Campaign ID"
+                  >
+                    {idCopied ? 'ID Copied' : 'Copy ID'}
                   </button>
                   <button
                     type="button"
